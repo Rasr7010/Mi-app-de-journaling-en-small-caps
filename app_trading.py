@@ -1,15 +1,13 @@
 import streamlit as st
 import streamlit.components.v1 as components
 import pandas as pd
-import os
 import json
 from datetime import date
 import altair as alt
 import calendar
+from streamlit_gsheets import GSheetsConnection
 
 st.set_page_config(page_title="Trading Journal", page_icon="📈", layout="centered")
-
-ARCHIVO_MAESTRO = "master_trades.csv"
 
 # ──────────────────────────────────────────────
 #  TEMA OSCURO PROFESIONAL - CSS GLOBAL
@@ -340,7 +338,7 @@ st.markdown('<a href="#inicio" class="btn-flotante" title="Volver arriba">↑</a
 
 
 # ──────────────────────────────────────────────
-#  LÓGICA DE PROCESAMIENTO (sin cambios)
+#  LÓGICA DE PROCESAMIENTO
 # ──────────────────────────────────────────────
 def procesar_historial(texto_completo):
     ejecuciones = []
@@ -404,34 +402,35 @@ def calcular_trades(df, fecha):
 
 
 # ──────────────────────────────────────────────
+#  CONEXIÓN A GOOGLE SHEETS Y CARGA DE DATOS
+# ──────────────────────────────────────────────
+conn = st.connection("gsheets", type=GSheetsConnection)
+
+try:
+    # Lee los datos directamente de la nube
+    df_historico = conn.read().dropna(how="all")
+    if not df_historico.empty:
+        # Forzar que la columna Fecha sea texto para evitar errores de comparación
+        if 'Fecha' in df_historico.columns:
+            df_historico['Fecha'] = df_historico['Fecha'].astype(str)
+    if 'Tags' not in df_historico.columns:
+        df_historico['Tags'] = ""
+except Exception as e:
+    df_historico = pd.DataFrame()
+
+# ──────────────────────────────────────────────
 #  TAGS HISTÓRICOS
 # ──────────────────────────────────────────────
 tags_unicos = []
-if os.path.exists(ARCHIVO_MAESTRO):
-    df_historico_base = pd.read_csv(ARCHIVO_MAESTRO)
-    if 'Tags' not in df_historico_base.columns:
-        df_historico_base['Tags'] = ""
-        df_historico_base.to_csv(ARCHIVO_MAESTRO, index=False)
-    for tag_str in df_historico_base['Tags'].dropna():
+if not df_historico.empty and 'Tags' in df_historico.columns:
+    for tag_val in df_historico['Tags'].dropna():
+        tag_str = str(tag_val)
         if tag_str.strip() != "":
             tags_unicos.extend([t.strip() for t in tag_str.split(',')])
 tags_unicos = sorted(list(set(tags_unicos)))
 
 if 'mis_tags' not in st.session_state:
     st.session_state['mis_tags'] = tags_unicos
-
-
-# ──────────────────────────────────────────────
-#  CARGAR DATOS HISTÓRICOS
-# ──────────────────────────────────────────────
-if os.path.exists(ARCHIVO_MAESTRO):
-    df_historico = pd.read_csv(ARCHIVO_MAESTRO)
-    if 'Tags' not in df_historico.columns:
-        df_historico['Tags'] = ""
-        df_historico.to_csv(ARCHIVO_MAESTRO, index=False)
-else:
-    df_historico = pd.DataFrame()
-
 
 # ──────────────────────────────────────────────
 #  TÍTULO
@@ -509,14 +508,24 @@ with tab1:
                 )
 
                 if st.button(f"Guardar trades del {fecha_operativa}", type="primary"):
-                    if os.path.exists(ARCHIVO_MAESTRO):
-                        df_master = pd.read_csv(ARCHIVO_MAESTRO)
+                    # Leer fresco de GSheets
+                    try:
+                        df_master = conn.read().dropna(how="all")
+                        if not df_master.empty and 'Fecha' in df_master.columns:
+                            df_master['Fecha'] = df_master['Fecha'].astype(str)
+                    except Exception:
+                        df_master = pd.DataFrame()
+
+                    if not df_master.empty:
                         df_master = df_master[df_master['Fecha'] != str(fecha_operativa)]
                         df_master = pd.concat([df_master, edited_df], ignore_index=True)
                     else:
                         df_master = edited_df
-                    df_master.to_csv(ARCHIVO_MAESTRO, index=False)
-                    st.success("Datos guardados correctamente.")
+                    
+                    # Actualizar en la nube y limpiar memoria
+                    conn.update(data=df_master)
+                    st.cache_data.clear()
+                    st.success("¡Datos guardados permanentemente en Google Sheets!")
 
 
 # ──────────────────────────────────────────────
@@ -618,6 +627,8 @@ if not df_historico.empty:
         st.altair_chart(grafico, use_container_width=True)
 
         if 'Tags' in df_historico.columns:
+            # Asegurar que los Tags sean texto antes de hacer split
+            df_historico['Tags'] = df_historico['Tags'].astype(str)
             df_tags = df_historico.assign(Tag_Ind=df_historico['Tags'].str.split(',')).explode('Tag_Ind')
             df_tags['Tag_Ind'] = df_tags['Tag_Ind'].str.strip()
             df_tags = df_tags[df_tags['Tag_Ind'] != ""]
@@ -641,7 +652,6 @@ if not df_historico.empty:
         df_historico['Fecha_DT'] = pd.to_datetime(df_historico['Fecha'])
         df_historico['Mes_Año'] = df_historico['Fecha_DT'].dt.strftime('%Y-%m')
 
-        # Construir estructura año -> [meses disponibles]
         años_disponibles = sorted(df_historico['Fecha_DT'].dt.year.unique(), reverse=True)
         meses_por_año = {
             año: sorted(df_historico[df_historico['Fecha_DT'].dt.year == año]['Fecha_DT'].dt.month.unique())
@@ -651,13 +661,12 @@ if not df_historico.empty:
         NOMBRES_MESES = {1:'Ene',2:'Feb',3:'Mar',4:'Abr',5:'May',6:'Jun',
                          7:'Jul',8:'Ago',9:'Sep',10:'Oct',11:'Nov',12:'Dic'}
 
-        # Inicializar estado
         if 'cal_año' not in st.session_state or st.session_state['cal_año'] not in años_disponibles:
             st.session_state['cal_año'] = años_disponibles[0]
         if 'cal_mes' not in st.session_state or st.session_state['cal_mes'] not in meses_por_año[st.session_state['cal_año']]:
             st.session_state['cal_mes'] = meses_por_año[st.session_state['cal_año']][-1]
 
-        # ── Botones de año ──
+        # Botones de año
         st.markdown('<span class="section-label">Año</span>', unsafe_allow_html=True)
         cols_años = st.columns([1]*len(años_disponibles) + [6])
         for i, año in enumerate(años_disponibles):
@@ -683,7 +692,7 @@ if not df_historico.empty:
                 </style>
                 """, unsafe_allow_html=True)
 
-        # ── Botones de mes ──
+        # Botones de mes
         st.markdown('<span class="section-label">Mes</span>', unsafe_allow_html=True)
         meses_del_año = meses_por_año[st.session_state['cal_año']]
         cols_meses = st.columns([1]*len(meses_del_año) + [6])
@@ -778,45 +787,27 @@ if not df_historico.empty:
                 html_cal += f'<div class="cal-week-total day-gray"><div class="week-title">Sem.</div><div class="cal-pnl">—</div></div>'
             html_cal += '</div>'
 
-        # Fila resumen del mes
         signo_resumen = "+" if pnl_mes_total >= 0 else ""
         if pnl_mes_total >= 0:
-            bg_mes = "rgba(16, 185, 129, 0.1)"
-            border_mes = "rgba(16, 185, 129, 0.35)"
-            color_hex = "#34d399"
+            bg_mes, border_mes, color_hex = "rgba(16, 185, 129, 0.1)", "rgba(16, 185, 129, 0.35)", "#34d399"
         else:
-            bg_mes = "rgba(239, 68, 68, 0.1)"
-            border_mes = "rgba(239, 68, 68, 0.35)"
-            color_hex = "#f87171"
+            bg_mes, border_mes, color_hex = "rgba(239, 68, 68, 0.1)", "rgba(239, 68, 68, 0.35)", "#f87171"
 
         html_cal += f"""
         <div style='display:flex; justify-content:flex-end; margin-top:10px;'>
-            <div style='
-                background:{bg_mes}; border:1px solid {border_mes}; border-radius:8px;
-                padding:10px 18px; text-align:right; min-width:200px;
-            '>
-                <span style='font-size:0.68rem; font-weight:700; text-transform:uppercase;
-                    letter-spacing:0.08em; color:{color_hex}; opacity:0.75; font-family:Inter,sans-serif;'>
-                    Total del mes
-                </span><br>
-                <span style='font-size:1.1rem; font-weight:700; color:{color_hex};
-                    font-family:"IBM Plex Mono",monospace;'>
-                    {signo_resumen}${pnl_mes_total:,.2f}
-                </span>
-                <span style='font-size:0.78rem; color:{color_hex}; opacity:0.65;
-                    font-family:Inter,sans-serif; margin-left:10px;'>
-                    {trades_mes_total} trades
-                </span>
+            <div style='background:{bg_mes}; border:1px solid {border_mes}; border-radius:8px; padding:10px 18px; text-align:right; min-width:200px;'>
+                <span style='font-size:0.68rem; font-weight:700; text-transform:uppercase; letter-spacing:0.08em; color:{color_hex}; opacity:0.75; font-family:Inter,sans-serif;'>Total del mes</span><br>
+                <span style='font-size:1.1rem; font-weight:700; color:{color_hex}; font-family:"IBM Plex Mono",monospace;'>{signo_resumen}${pnl_mes_total:,.2f}</span>
+                <span style='font-size:0.78rem; color:{color_hex}; opacity:0.65; font-family:Inter,sans-serif; margin-left:10px;'>{trades_mes_total} trades</span>
             </div>
         </div>
         """
-
         st.markdown(html_cal, unsafe_allow_html=True)
 
     # ── PESTAÑA HISTORIAL ──
     with tab4:
         with st.expander("Gestor de Datos — Eliminar días operativos"):
-            st.warning("Elimina una fecha si cargaste un archivo incorrecto.")
+            st.warning("Elimina una fecha directamente de Google Sheets si hubo un error.")
             fechas_guardadas = sorted(df_historico['Fecha'].unique(), reverse=True)
             col_d1, col_d2 = st.columns([2, 1])
             with col_d1:
@@ -825,14 +816,20 @@ if not df_historico.empty:
                 st.write("")
                 st.write("")
                 if st.button("Eliminar permanentemente", type="primary"):
-                    df_historico_base = pd.read_csv(ARCHIVO_MAESTRO)
-                    df_historico_base = df_historico_base[df_historico_base['Fecha'] != fecha_a_borrar]
-                    df_historico_base.to_csv(ARCHIVO_MAESTRO, index=False)
-                    st.success(f"Datos del {fecha_a_borrar} eliminados.")
-                    st.rerun()
+                    try:
+                        df_master = conn.read().dropna(how="all")
+                        if not df_master.empty and 'Fecha' in df_master.columns:
+                            df_master['Fecha'] = df_master['Fecha'].astype(str)
+                            df_master = df_master[df_master['Fecha'] != str(fecha_a_borrar)]
+                            conn.update(data=df_master)
+                            st.cache_data.clear()
+                            st.success(f"Datos del {fecha_a_borrar} eliminados.")
+                            st.rerun()
+                    except Exception as e:
+                        st.error("Hubo un error al intentar eliminar.")
 
         st.markdown('<span class="section-label">Historial Completo</span>', unsafe_allow_html=True)
-        st.caption("Doble clic en la columna **Tags** para editar el setup de cualquier operación.")
+        st.caption("Doble clic en la columna **Tags** para editar el setup de cualquier operación y guardarlo en la nube.")
 
         columnas_mostrar = [c for c in df_historico.columns if c not in ['Fecha_DT', 'Mes_Año']]
         df_editable = df_historico[columnas_mostrar].copy()
@@ -853,15 +850,22 @@ if not df_historico.empty:
         )
 
         if st.button("Guardar cambios en el historial", type="primary"):
-            df_master = pd.read_csv(ARCHIVO_MAESTRO)
-            # Actualizar solo la columna Tags usando Fecha + Ticker + Hora Inicio como clave
-            for _, row in edited_historial.iterrows():
-                mask = (
-                    (df_master['Fecha'] == row['Fecha']) &
-                    (df_master['Ticker'] == row['Ticker']) &
-                    (df_master['Hora Inicio'] == row['Hora Inicio'])
-                )
-                df_master.loc[mask, 'Tags'] = row['Tags']
-            df_master.to_csv(ARCHIVO_MAESTRO, index=False)
-            st.success("Cambios guardados correctamente.")
-            st.rerun()
+            try:
+                df_master = conn.read().dropna(how="all")
+                if not df_master.empty and 'Fecha' in df_master.columns:
+                    df_master['Fecha'] = df_master['Fecha'].astype(str)
+                    
+                    for _, row in edited_historial.iterrows():
+                        mask = (
+                            (df_master['Fecha'] == str(row['Fecha'])) &
+                            (df_master['Ticker'] == row['Ticker']) &
+                            (df_master['Hora Inicio'] == row['Hora Inicio'])
+                        )
+                        df_master.loc[mask, 'Tags'] = row['Tags']
+                        
+                    conn.update(data=df_master)
+                    st.cache_data.clear()
+                    st.success("Cambios actualizados en Google Sheets.")
+                    st.rerun()
+            except Exception as e:
+                st.error("Hubo un error al intentar actualizar los tags.")
