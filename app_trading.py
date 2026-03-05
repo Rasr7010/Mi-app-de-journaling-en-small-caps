@@ -23,10 +23,6 @@ if 'access_token' in st.session_state and 'refresh_token' in st.session_state:
     except:
         st.session_state.user = None
 
-# Inicializar el perfil activo por defecto
-if 'perfil_activo' not in st.session_state:
-    st.session_state['perfil_activo'] = 'Principal'
-
 # ──────────────────────────────────────────────
 #  TEMA OSCURO PROFESIONAL - CSS GLOBAL
 # ──────────────────────────────────────────────
@@ -125,21 +121,6 @@ if st.session_state.user is None:
     st.stop()
 
 # ──────────────────────────────────────────────
-#  HEADER, PERFIL ACTIVO Y CIERRE DE SESIÓN
-# ──────────────────────────────────────────────
-col_titulo, col_perfil, col_logout = st.columns([3, 1, 1])
-with col_titulo:
-    st.title("⬛ Trading Journal")
-with col_perfil:
-    st.markdown(f"<div style='text-align:right; padding-top:15px; color:#64748b; font-size:0.75rem;'>PERFIL ACTIVO<br><b style='color:#60a5fa; font-size:0.9rem;'>{st.session_state['perfil_activo']}</b></div>", unsafe_allow_html=True)
-with col_logout:
-    st.write("")
-    if st.button("Cerrar Sesión"):
-        supabase.auth.sign_out()
-        st.session_state.clear()
-        st.rerun()
-
-# ──────────────────────────────────────────────
 #  CARGA GLOBAL DE DATOS
 # ──────────────────────────────────────────────
 @st.cache_data(ttl=5)
@@ -153,8 +134,8 @@ def obtener_datos_usuario():
             'volumen': 'Volumen (Acciones)', 'pnl': 'PnL ($)', 'tags': 'Tags',
             'perfil': 'Perfil'
         })
-        if 'Perfil' not in df.columns: df['Perfil'] = 'Principal'
-        df['Perfil'] = df['Perfil'].fillna('Principal')
+        if 'Perfil' not in df.columns: df['Perfil'] = 'Mi Cuenta'
+        df['Perfil'] = df['Perfil'].fillna('Mi Cuenta')
         df['Fecha'] = pd.to_datetime(df['Fecha']).dt.strftime('%Y-%m-%d')
         df['Tags'] = df['Tags'].fillna("")
         df['DateTime_Real'] = pd.to_datetime(df['Fecha'].astype(str) + ' ' + df['Hora Inicio'].astype(str), errors='coerce')
@@ -175,22 +156,39 @@ tags_unicos = sorted(list(set(tags_unicos)))
 if 'mis_tags' not in st.session_state:
     st.session_state['mis_tags'] = tags_unicos
 
-# Obtener lista de perfiles únicos desde la base de datos
+# Obtener lista de perfiles únicos desde la base de datos sin forzar ninguno
 perfiles_db = df_historico_global['Perfil'].unique().tolist() if not df_historico_global.empty else []
-if 'Principal' not in perfiles_db: perfiles_db.insert(0, 'Principal')
 
 if 'lista_perfiles' not in st.session_state:
-    st.session_state['lista_perfiles'] = perfiles_db
+    # Si la cuenta es completamente nueva y no tiene datos, le asignamos "Mi Cuenta" para que pueda empezar
+    st.session_state['lista_perfiles'] = perfiles_db if perfiles_db else ['Mi Cuenta']
 else:
+    # Mantenemos los perfiles creados en memoria y añadimos los que vienen de la BD
     for p in perfiles_db:
-        if p not in st.session_state['lista_perfiles']: st.session_state['lista_perfiles'].append(p)
+        if p not in st.session_state['lista_perfiles']: 
+            st.session_state['lista_perfiles'].append(p)
 
-# Validar que el perfil activo siga existiendo (por si se eliminó)
-if st.session_state['perfil_activo'] not in st.session_state['lista_perfiles']:
+# Validar que el perfil activo exista en la lista actual
+if 'perfil_activo' not in st.session_state or st.session_state['perfil_activo'] not in st.session_state['lista_perfiles']:
     st.session_state['perfil_activo'] = st.session_state['lista_perfiles'][0]
 
-# Filtramos la data para que las pestañas estadísticas solo vean el perfil actual
+# Filtramos la data para que toda la app solo vea el perfil activo
 df_perfil = df_historico_global[df_historico_global['Perfil'] == st.session_state['perfil_activo']].copy() if not df_historico_global.empty else pd.DataFrame()
+
+# ──────────────────────────────────────────────
+#  HEADER, PERFIL ACTIVO Y CIERRE DE SESIÓN
+# ──────────────────────────────────────────────
+col_titulo, col_perfil, col_logout = st.columns([3, 1, 1])
+with col_titulo:
+    st.title("⬛ Trading Journal")
+with col_perfil:
+    st.markdown(f"<div style='text-align:right; padding-top:15px; color:#64748b; font-size:0.75rem;'>PERFIL ACTIVO<br><b style='color:#60a5fa; font-size:0.9rem;'>{st.session_state['perfil_activo']}</b></div>", unsafe_allow_html=True)
+with col_logout:
+    st.write("")
+    if st.button("Cerrar Sesión"):
+        supabase.auth.sign_out()
+        st.session_state.clear()
+        st.rerun()
 
 # ──────────────────────────────────────────────
 #  LÓGICA DE PROCESAMIENTO
@@ -241,7 +239,6 @@ tab1, tab_filtros, tab2, tab3, tab4, tab_perfiles = st.tabs([
 with tab_perfiles:
     st.markdown('<span class="section-label">Selección de Cuenta</span>', unsafe_allow_html=True)
     
-    # Selector Principal
     idx_activo = st.session_state['lista_perfiles'].index(st.session_state['perfil_activo']) if st.session_state['perfil_activo'] in st.session_state['lista_perfiles'] else 0
     perfil_seleccionado = st.radio("Elige el perfil con el que deseas trabajar:", st.session_state['lista_perfiles'], index=idx_activo, horizontal=True)
     
@@ -269,10 +266,8 @@ with tab_perfiles:
             nuevo_nombre = st.text_input("Nuevo nombre:", key="ren_txt")
             if st.button("Actualizar", use_container_width=True):
                 if nuevo_nombre and nuevo_nombre != perfil_a_renombrar and nuevo_nombre not in st.session_state['lista_perfiles']:
-                    # Actualizar en base de datos
                     supabase.table('historial_operaciones').update({'perfil': nuevo_nombre}).eq('perfil', perfil_a_renombrar).eq('user_id', st.session_state.user.id).execute()
                     
-                    # Actualizar memoria
                     st.session_state['lista_perfiles'].remove(perfil_a_renombrar)
                     st.session_state['lista_perfiles'].append(nuevo_nombre)
                     if st.session_state['perfil_activo'] == perfil_a_renombrar:
@@ -288,10 +283,7 @@ with tab_perfiles:
             perfil_a_borrar = st.selectbox("Perfil a eliminar:", st.session_state['lista_perfiles'], key="del_sel")
             if st.button("Eliminar permanentemente", type="primary", use_container_width=True):
                 if len(st.session_state['lista_perfiles']) > 1:
-                    # Borrar de la base de datos
                     supabase.table('historial_operaciones').delete().eq('perfil', perfil_a_borrar).eq('user_id', st.session_state.user.id).execute()
-                    
-                    # Actualizar memoria
                     st.session_state['lista_perfiles'].remove(perfil_a_borrar)
                     if st.session_state['perfil_activo'] == perfil_a_borrar:
                         st.session_state['perfil_activo'] = st.session_state['lista_perfiles'][0]
@@ -300,7 +292,7 @@ with tab_perfiles:
                     st.success("Perfil eliminado.")
                     st.rerun()
                 else:
-                    st.error("No puedes eliminar el único perfil que tienes.")
+                    st.error("Debes tener al menos un perfil en tu cuenta.")
 
 # ── PESTAÑA INGRESO ──
 with tab1:
