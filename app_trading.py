@@ -96,21 +96,18 @@ st.markdown(dark_theme_css, unsafe_allow_html=True)
 st.markdown('<a href="#inicio" class="btn-flotante" title="Volver arriba">↑</a>', unsafe_allow_html=True)
 
 # ──────────────────────────────────────────────
-#  SISTEMA DE AUTENTICACIÓN (LOGIN / REGISTRO)
+#  SISTEMA DE AUTENTICACIÓN
 # ──────────────────────────────────────────────
 if st.session_state.user is None:
     st.markdown("<h1 style='text-align: center;'>🔐 Trading Journal</h1>", unsafe_allow_html=True)
     st.markdown("<p style='text-align: center; color: #94a3b8;'>Inicia sesión para acceder a tu historial privado</p>", unsafe_allow_html=True)
     
     tab_login, tab_registro = st.tabs(["Iniciar Sesión", "Crear Cuenta"])
-    
     with tab_login:
-        # Envolver en un formulario web real para que funcione el autocompletado y el botón 'Enter'
         with st.form("login_form"):
             email_login = st.text_input("Correo electrónico", key="login_email", autocomplete="email")
             pass_login = st.text_input("Contraseña", type="password", key="login_pass", autocomplete="current-password")
             submit_login = st.form_submit_button("Entrar", type="primary", use_container_width=True)
-            
             if submit_login:
                 try:
                     res = supabase.auth.sign_in_with_password({"email": email_login, "password": pass_login})
@@ -126,15 +123,17 @@ if st.session_state.user is None:
             email_reg = st.text_input("Nuevo Correo electrónico", key="reg_email", autocomplete="email")
             pass_reg = st.text_input("Nueva Contraseña (mínimo 6 caracteres)", type="password", key="reg_pass", autocomplete="new-password")
             submit_reg = st.form_submit_button("Registrarse", use_container_width=True)
-            
             if submit_reg:
                 try:
                     res = supabase.auth.sign_up({"email": email_reg, "password": pass_reg})
                     st.success("¡Cuenta creada exitosamente! Ahora puedes iniciar sesión.")
                 except Exception as e:
                     st.error(f"Error al registrar: {e}")
-                
     st.stop()
+
+# ──────────────────────────────────────────────
+#  HEADER Y CIERRE DE SESIÓN
+# ──────────────────────────────────────────────
 col_titulo, col_logout = st.columns([4, 1])
 with col_titulo:
     st.title("⬛ Trading Journal — Small Caps")
@@ -144,6 +143,72 @@ with col_logout:
         supabase.auth.sign_out()
         st.session_state.clear()
         st.rerun()
+
+# ──────────────────────────────────────────────
+#  CARGA GLOBAL DE DATOS
+# ──────────────────────────────────────────────
+@st.cache_data(ttl=5)
+def obtener_datos_usuario():
+    res = supabase.table('historial_operaciones').select('*').execute()
+    df = pd.DataFrame(res.data)
+    if not df.empty:
+        df = df.rename(columns={
+            'fecha': 'Fecha', 'ticker': 'Ticker', 'tipo': 'Tipo',
+            'hora_inicio': 'Hora Inicio', 'hora_fin': 'Hora Fin',
+            'volumen': 'Volumen (Acciones)', 'pnl': 'PnL ($)', 'tags': 'Tags',
+            'perfil': 'Perfil'
+        })
+        if 'Perfil' not in df.columns: df['Perfil'] = 'Principal'
+        df['Perfil'] = df['Perfil'].fillna('Principal')
+        df['Fecha'] = pd.to_datetime(df['Fecha']).dt.strftime('%Y-%m-%d')
+        df['Tags'] = df['Tags'].fillna("")
+        df['DateTime_Real'] = pd.to_datetime(df['Fecha'].astype(str) + ' ' + df['Hora Inicio'].astype(str), errors='coerce')
+        df = df.sort_values(by='DateTime_Real').reset_index(drop=True)
+        df = df.drop(columns=['DateTime_Real'])
+    return df
+
+df_historico_global = obtener_datos_usuario()
+
+# Extraer todos los tags a nivel global
+tags_unicos = []
+if not df_historico_global.empty and 'Tags' in df_historico_global.columns:
+    for tag_val in df_historico_global['Tags'].dropna():
+        tag_str = str(tag_val)
+        if tag_str.strip() != "" and tag_str.strip() != "None":
+            tags_unicos.extend([t.strip() for t in tag_str.split(',')])
+tags_unicos = sorted(list(set(tags_unicos)))
+
+if 'mis_tags' not in st.session_state:
+    st.session_state['mis_tags'] = tags_unicos
+
+# ──────────────────────────────────────────────
+#  SISTEMA MULTICUENTA (PERFILES)
+# ──────────────────────────────────────────────
+perfiles_db = df_historico_global['Perfil'].unique().tolist() if not df_historico_global.empty else []
+if 'Principal' not in perfiles_db: perfiles_db.insert(0, 'Principal')
+
+if 'lista_perfiles' not in st.session_state:
+    st.session_state['lista_perfiles'] = perfiles_db
+else:
+    for p in perfiles_db:
+        if p not in st.session_state['lista_perfiles']: st.session_state['lista_perfiles'].append(p)
+
+c_perfil1, c_perfil2, c_perfil3 = st.columns([2, 1, 1])
+with c_perfil1:
+    perfil_activo = st.selectbox("👤 Perfil Activo (Cuenta):", st.session_state['lista_perfiles'])
+with c_perfil2:
+    nuevo_perfil = st.text_input("Crear nuevo perfil:", placeholder="Ej: Cuenta Demo")
+with c_perfil3:
+    st.write(""); st.write("")
+    if st.button("+ Añadir Perfil", use_container_width=True):
+        if nuevo_perfil and nuevo_perfil not in st.session_state['lista_perfiles']:
+            st.session_state['lista_perfiles'].append(nuevo_perfil)
+            st.rerun()
+
+st.markdown("---")
+
+# Filtramos la data maestra para que TODA la app solo vea el perfil seleccionado
+df_perfil = df_historico_global[df_historico_global['Perfil'] == perfil_activo].copy() if not df_historico_global.empty else pd.DataFrame()
 
 # ──────────────────────────────────────────────
 #  LÓGICA DE PROCESAMIENTO
@@ -176,14 +241,10 @@ def procesar_historial(texto_completo):
 def calcular_trades(df, fecha):
     trades = []
     for ticker, df_ticker in df.groupby('Ticker'):
-        inventario = 0
-        flujo_caja = 0.0
-        acciones_totales = 0
-        hora_inicio = None
+        inventario = 0; flujo_caja = 0.0; acciones_totales = 0; hora_inicio = None
         for index, row in df_ticker.iterrows():
             if inventario == 0: hora_inicio = row['Hora']
-            qty = row['Acciones']
-            precio = row['Precio_Ejecucion']
+            qty = row['Acciones']; precio = row['Precio_Ejecucion']
             if row['Lado'] in ['BUY']: inventario += qty; flujo_caja -= (qty * precio)
             elif row['Lado'] in ['SELL', 'SSHRT']: inventario -= qty; flujo_caja += (qty * precio)
             acciones_totales += qty
@@ -193,54 +254,19 @@ def calcular_trades(df, fecha):
     return pd.DataFrame(trades).sort_values(by=['Fecha', 'Hora Inicio']).reset_index(drop=True)
 
 # ──────────────────────────────────────────────
-#  CARGAR DATOS DESDE SUPABASE Y ORDENAR ESTRICTAMENTE
-# ──────────────────────────────────────────────
-@st.cache_data(ttl=5)
-def obtener_datos_usuario():
-    res = supabase.table('historial_operaciones').select('*').execute()
-    df = pd.DataFrame(res.data)
-    if not df.empty:
-        df = df.rename(columns={
-            'fecha': 'Fecha', 'ticker': 'Ticker', 'tipo': 'Tipo',
-            'hora_inicio': 'Hora Inicio', 'hora_fin': 'Hora Fin',
-            'volumen': 'Volumen (Acciones)', 'pnl': 'PnL ($)', 'tags': 'Tags'
-        })
-        df['Fecha'] = pd.to_datetime(df['Fecha']).dt.strftime('%Y-%m-%d')
-        df['Tags'] = df['Tags'].fillna("")
-        
-        # EL ARREGLO 1: Forzar el orden cronológico absoluto siempre que se descarguen datos
-        df['DateTime_Real'] = pd.to_datetime(df['Fecha'].astype(str) + ' ' + df['Hora Inicio'].astype(str), errors='coerce')
-        df = df.sort_values(by='DateTime_Real').reset_index(drop=True)
-        df = df.drop(columns=['DateTime_Real'])
-    return df
-
-df_historico = obtener_datos_usuario()
-
-tags_unicos = []
-if not df_historico.empty and 'Tags' in df_historico.columns:
-    for tag_val in df_historico['Tags'].dropna():
-        tag_str = str(tag_val)
-        if tag_str.strip() != "" and tag_str.strip() != "None":
-            tags_unicos.extend([t.strip() for t in tag_str.split(',')])
-tags_unicos = sorted(list(set(tags_unicos)))
-
-if 'mis_tags' not in st.session_state:
-    st.session_state['mis_tags'] = tags_unicos
-
-# ──────────────────────────────────────────────
 #  INTERFAZ PRINCIPAL TABS
 # ──────────────────────────────────────────────
 tab1, tab_filtros, tab2, tab3, tab4 = st.tabs(["  Ingreso  ", "  Filtros  ", "  Estadísticas  ", "  Calendario  ", "  Historial  "])
 
 with tab1:
     st.markdown('<span class="section-label">Nueva sesión de trading</span>', unsafe_allow_html=True)
+    st.info(f"Los datos que subas se guardarán en el perfil: **{perfil_activo}**")
     col_fecha, col_archivo = st.columns([1, 2])
     with col_fecha: fecha_operativa = st.date_input("Fecha de sesión", date.today())
     with col_archivo: uploaded_file = st.file_uploader("Archivo .txt de Sterling Trader Pro", type=["txt"], label_visibility="visible")
 
     if uploaded_file is not None:
-        bytes_data = uploaded_file.getvalue()
-        texto = ""
+        bytes_data = uploaded_file.getvalue(); texto = ""
         for encoding in ['utf-8', 'latin-1', 'utf-16', 'cp1252']:
             try:
                 temp_text = bytes_data.decode(encoding)
@@ -263,8 +289,7 @@ with tab1:
                     st.write(""); st.write("")
                     if st.button("+ Añadir"):
                         if nuevo_tag and nuevo_tag not in st.session_state['mis_tags']:
-                            st.session_state['mis_tags'].append(nuevo_tag)
-                            st.rerun()
+                            st.session_state['mis_tags'].append(nuevo_tag); st.rerun()
 
                 st.caption("Doble clic en la columna **Tags** para asignar el setup a cada trade.")
                 edited_df = st.data_editor(
@@ -272,40 +297,42 @@ with tab1:
                     column_config={ "Tags": st.column_config.SelectboxColumn("Tags (Setups)", options=st.session_state['mis_tags'], required=False) }
                 )
 
-                if st.button(f"Guardar trades en la nube", type="primary"):
+                if st.button(f"Guardar trades en {perfil_activo}", type="primary"):
                     df_to_upload = edited_df.rename(columns={
                         'Fecha': 'fecha', 'Ticker': 'ticker', 'Tipo': 'tipo',
                         'Hora Inicio': 'hora_inicio', 'Hora Fin': 'hora_fin',
                         'Volumen (Acciones)': 'volumen', 'PnL ($)': 'pnl', 'Tags': 'tags'
                     })
                     df_to_upload['user_id'] = st.session_state.user.id
+                    df_to_upload['perfil'] = perfil_activo  # Asignamos la propiedad del perfil a la fila
                     datos_dict = df_to_upload.to_dict(orient='records')
                     
-                    supabase.table('historial_operaciones').delete().eq('fecha', str(fecha_operativa)).eq('user_id', st.session_state.user.id).execute()
+                    # Se borran y reescriben los datos considerando el Perfil Activo
+                    supabase.table('historial_operaciones').delete().eq('fecha', str(fecha_operativa)).eq('user_id', st.session_state.user.id).eq('perfil', perfil_activo).execute()
                     supabase.table('historial_operaciones').insert(datos_dict).execute()
-                    st.cache_data.clear(); st.success("¡Operaciones guardadas permanentemente!")
+                    st.cache_data.clear(); st.success(f"¡Operaciones guardadas en {perfil_activo}!")
 
 with tab_filtros:
     st.markdown('<span class="section-label">Filtrar estadísticas por Setup / Tag</span>', unsafe_allow_html=True)
-    if not df_historico.empty and st.session_state['mis_tags']:
+    if not df_perfil.empty and st.session_state['mis_tags']:
         if 'tags_activos' not in st.session_state: st.session_state['tags_activos'] = set()
-        st.caption("Activa o desactiva los tags para filtrar las estadísticas.")
+        st.caption("Activa o desactiva los tags para filtrar las estadísticas de este perfil.")
         for tag in st.session_state['mis_tags']:
             if st.checkbox(tag, value=(tag in st.session_state['tags_activos']), key=f"chk_{tag}"): st.session_state['tags_activos'].add(tag)
             else: st.session_state['tags_activos'].discard(tag)
         st.markdown("---")
         if st.session_state['tags_activos']:
             pattern = '|'.join(st.session_state['tags_activos'])
-            df_historico = df_historico[df_historico['Tags'].str.contains(pattern, case=False, na=False, regex=True)]
+            df_perfil = df_perfil[df_perfil['Tags'].str.contains(pattern, case=False, na=False, regex=True)]
             st.success(f"Filtrando por: {', '.join(sorted(st.session_state['tags_activos']))}")
-        else: st.info("Mostrando todos los datos. Activa un tag para filtrar.")
-    elif df_historico.empty: st.info("Aún no hay datos guardados en la nube.")
+        else: st.info("Mostrando todos los datos de este perfil.")
+    elif df_perfil.empty: st.info(f"Aún no hay datos guardados en el perfil '{perfil_activo}'.")
 
-if not df_historico.empty:
+if not df_perfil.empty:
     with tab2:
-        total_pnl = df_historico['PnL ($)'].sum()
-        total_trades = len(df_historico)
-        win_rate = (len(df_historico[df_historico['PnL ($)'] > 0]) / total_trades) * 100 if total_trades > 0 else 0
+        total_pnl = df_perfil['PnL ($)'].sum()
+        total_trades = len(df_perfil)
+        win_rate = (len(df_perfil[df_perfil['PnL ($)'] > 0]) / total_trades) * 100 if total_trades > 0 else 0
 
         col1, col2, col3 = st.columns(3)
         col1.metric("PnL Histórico Total", f"${total_pnl:,.2f}")
@@ -314,7 +341,7 @@ if not df_historico.empty:
         st.markdown("---")
         st.markdown('<span class="section-label">Curva de Capital</span>', unsafe_allow_html=True)
 
-        df_curva = df_historico.copy()
+        df_curva = df_perfil.copy()
         df_curva['PnL Acumulado'] = df_curva['PnL ($)'].cumsum()
         df_curva['Trade #'] = df_curva.index + 1
 
@@ -329,7 +356,7 @@ if not df_historico.empty:
 
         st.markdown("---")
         st.markdown('<span class="section-label">Rendimiento Diario</span>', unsafe_allow_html=True)
-        rendimiento_diario = df_historico.groupby('Fecha')['PnL ($)'].sum().reset_index()
+        rendimiento_diario = df_perfil.groupby('Fecha')['PnL ($)'].sum().reset_index()
         rendimiento_diario['Color'] = rendimiento_diario['PnL ($)'].apply(lambda x: '#10b981' if x >= 0 else '#ef4444')
 
         grafico_base = alt.Chart(rendimiento_diario).mark_bar(size=40, cornerRadiusTopLeft=4, cornerRadiusTopRight=4) if len(rendimiento_diario) < 7 else alt.Chart(rendimiento_diario).mark_bar(cornerRadiusTopLeft=3, cornerRadiusTopRight=3)
@@ -340,9 +367,9 @@ if not df_historico.empty:
         ).properties(height=280, background='#0d1120').configure_view(strokeWidth=0)
         st.altair_chart(grafico, use_container_width=True)
 
-        if 'Tags' in df_historico.columns:
-            df_historico['Tags_Calc'] = df_historico['Tags'].astype(str)
-            df_tags = df_historico.assign(Tag_Ind=df_historico['Tags_Calc'].str.split(',')).explode('Tag_Ind')
+        if 'Tags' in df_perfil.columns:
+            df_perfil['Tags_Calc'] = df_perfil['Tags'].astype(str)
+            df_tags = df_perfil.assign(Tag_Ind=df_perfil['Tags_Calc'].str.split(',')).explode('Tag_Ind')
             df_tags['Tag_Ind'] = df_tags['Tag_Ind'].str.strip()
             df_tags = df_tags[df_tags['Tag_Ind'] != ""]
             if not df_tags.empty:
@@ -358,10 +385,10 @@ if not df_historico.empty:
                 st.altair_chart(grafico_tags, use_container_width=True)
 
     with tab3:
-        df_historico['Fecha_DT'] = pd.to_datetime(df_historico['Fecha'])
-        df_historico['Mes_Año'] = df_historico['Fecha_DT'].dt.strftime('%Y-%m')
-        años_disponibles = sorted(df_historico['Fecha_DT'].dt.year.unique(), reverse=True)
-        meses_por_año = {año: sorted(df_historico[df_historico['Fecha_DT'].dt.year == año]['Fecha_DT'].dt.month.unique()) for año in años_disponibles}
+        df_perfil['Fecha_DT'] = pd.to_datetime(df_perfil['Fecha'])
+        df_perfil['Mes_Año'] = df_perfil['Fecha_DT'].dt.strftime('%Y-%m')
+        años_disponibles = sorted(df_perfil['Fecha_DT'].dt.year.unique(), reverse=True)
+        meses_por_año = {año: sorted(df_perfil[df_perfil['Fecha_DT'].dt.year == año]['Fecha_DT'].dt.month.unique()) for año in años_disponibles}
         NOMBRES_MESES = {1:'Ene',2:'Feb',3:'Mar',4:'Abr',5:'May',6:'Jun',7:'Jul',8:'Ago',9:'Sep',10:'Oct',11:'Nov',12:'Dic'}
 
         if 'cal_año' not in st.session_state or st.session_state['cal_año'] not in años_disponibles: st.session_state['cal_año'] = años_disponibles[0]
@@ -392,10 +419,9 @@ if not df_historico.empty:
                 st.markdown(f"""<style>div[data-testid="column"]:nth-child({i+1}) div[data-testid="stButton"] > button {{ {estilo_m} border-radius: 6px !important; font-family: 'Inter', sans-serif !important; font-size: 0.82rem !important; }}</style>""", unsafe_allow_html=True)
 
         st.markdown("---")
-        año_sel = st.session_state['cal_año']
-        mes_sel = st.session_state['cal_mes']
+        año_sel = st.session_state['cal_año']; mes_sel = st.session_state['cal_mes']
         mes_año_str = f"{año_sel}-{mes_sel:02d}"
-        df_mes = df_historico[df_historico['Mes_Año'] == mes_año_str]
+        df_mes = df_perfil[df_perfil['Mes_Año'] == mes_año_str]
 
         pnl_mes_total = df_mes['PnL ($)'].sum()
         color_mes = "#10b981" if pnl_mes_total >= 0 else "#ef4444"
@@ -414,8 +440,7 @@ if not df_historico.empty:
             for dia in dias_habiles:
                 if dia == 0: html_cal += '<div class="cal-day day-blank"></div>'
                 elif dia in pnl_por_dia:
-                    pnl = pnl_por_dia[dia]; n_trades = trades_por_dia.get(dia, 0)
-                    pnl_semana += pnl; trades_semana += n_trades; dias_con_trade += 1
+                    pnl = pnl_por_dia[dia]; n_trades = trades_por_dia.get(dia, 0); pnl_semana += pnl; trades_semana += n_trades; dias_con_trade += 1
                     clase = "day-green" if pnl >= 0 else "day-red"
                     html_cal += f'<div class="cal-day {clase}"><div class="cal-date">{dia}</div><div class="cal-pnl">{("+" if pnl>=0 else "")}${pnl:,.2f}</div><div class="cal-trades">{n_trades} trades</div></div>'
                 else: html_cal += f'<div class="cal-day day-gray"><div class="cal-date">{dia}</div><div class="cal-pnl">—</div></div>'
@@ -427,46 +452,41 @@ if not df_historico.empty:
         color_hex = "#34d399" if pnl_mes_total >= 0 else "#f87171"
         bg_mes = "rgba(16, 185, 129, 0.1)" if pnl_mes_total >= 0 else "rgba(239, 68, 68, 0.1)"
         border_mes = "rgba(16, 185, 129, 0.35)" if pnl_mes_total >= 0 else "rgba(239, 68, 68, 0.35)"
-        
         html_cal += f"""<div style='display:flex; justify-content:flex-end; margin-top:10px;'><div style='background:{bg_mes}; border:1px solid {border_mes}; border-radius:8px; padding:10px 18px; text-align:right; min-width:200px;'><span style='font-size:0.68rem; font-weight:700; text-transform:uppercase; color:{color_hex}; opacity:0.75; font-family:Inter,sans-serif;'>Total del mes</span><br><span style='font-size:1.1rem; font-weight:700; color:{color_hex}; font-family:"IBM Plex Mono",monospace;'>{('+' if pnl_mes_total>=0 else '')}${pnl_mes_total:,.2f}</span><span style='font-size:0.78rem; color:{color_hex}; opacity:0.65; margin-left:10px;'>{trades_mes_total} trades</span></div></div>"""
         st.markdown(html_cal, unsafe_allow_html=True)
 
     with tab4:
-        with st.expander("Gestor de Datos — Eliminar días operativos"):
-            fechas_guardadas = sorted(df_historico['Fecha'].unique(), reverse=True)
+        with st.expander(f"Gestor de Datos — Eliminar de '{perfil_activo}'"):
+            fechas_guardadas = sorted(df_perfil['Fecha'].unique(), reverse=True)
             col_d1, col_d2 = st.columns([2, 1])
             with col_d1: fecha_a_borrar = st.selectbox("Fecha a eliminar:", fechas_guardadas)
             with col_d2:
                 st.write(""); st.write("")
                 if st.button("Eliminar permanentemente", type="primary"):
-                    supabase.table('historial_operaciones').delete().eq('fecha', str(fecha_a_borrar)).eq('user_id', st.session_state.user.id).execute()
+                    # Solo borra la fecha para el usuario Y el perfil activo actual
+                    supabase.table('historial_operaciones').delete().eq('fecha', str(fecha_a_borrar)).eq('user_id', st.session_state.user.id).eq('perfil', perfil_activo).execute()
                     st.cache_data.clear()
-                    st.success(f"Datos del {fecha_a_borrar} eliminados de la nube.")
+                    st.success(f"Datos del {fecha_a_borrar} eliminados de {perfil_activo}.")
                     st.rerun()
 
-        st.markdown('<span class="section-label">Historial Completo</span>', unsafe_allow_html=True)
+        st.markdown(f'<span class="section-label">Historial de {perfil_activo}</span>', unsafe_allow_html=True)
         
-        # EL ARREGLO 2: Agregar el creador de tags directamente arriba del historial
         c1_hist, c2_hist = st.columns([3, 1])
-        with c1_hist:
-            nuevo_tag_hist = st.text_input("Si necesitas un tag que no existe en tu lista, créalo aquí:", placeholder="Ej: Breakout, Reversal...", key="tag_tab4")
+        with c1_hist: nuevo_tag_hist = st.text_input("Crear nuevo Tag para la lista:", placeholder="Ej: Breakout...", key="tag_tab4")
         with c2_hist:
             st.write(""); st.write("")
             if st.button("+ Añadir a la lista", key="btn_tab4"):
                 if nuevo_tag_hist and nuevo_tag_hist not in st.session_state['mis_tags']:
-                    st.session_state['mis_tags'].append(nuevo_tag_hist)
-                    st.rerun()
+                    st.session_state['mis_tags'].append(nuevo_tag_hist); st.rerun()
 
-        st.caption("Doble clic en la columna **Tags** para editar el setup de cualquier operación y guardarlo en la nube.")
+        st.caption("Doble clic en la columna **Tags** para editar.")
 
-        columnas_ocultas = ['user_id', 'created_at', 'Fecha_DT', 'Mes_Año', 'Tags_Calc']
-        columnas_mostrar = [c for c in df_historico.columns if c not in columnas_ocultas]
-        df_editable = df_historico[columnas_mostrar].copy()
+        columnas_ocultas = ['user_id', 'created_at', 'Fecha_DT', 'Mes_Año', 'Tags_Calc', 'Perfil']
+        columnas_mostrar = [c for c in df_perfil.columns if c not in columnas_ocultas]
+        df_editable = df_perfil[columnas_mostrar].copy()
 
         edited_historial = st.data_editor(
-            df_editable,
-            use_container_width=True,
-            num_rows="fixed",
+            df_editable, use_container_width=True, num_rows="fixed",
             column_config={
                 "id": None,
                 "Tags": st.column_config.SelectboxColumn("Tags (Setups)", options=st.session_state['mis_tags'], required=False),
@@ -476,10 +496,8 @@ if not df_historico.empty:
 
         if st.button("Guardar cambios en el historial", type="primary"):
             for index, row in edited_historial.iterrows():
-                tag_original = df_historico.loc[index, 'Tags']
+                tag_original = df_perfil.loc[index, 'Tags']
                 tag_nuevo = row['Tags']
                 if tag_original != tag_nuevo:
                     supabase.table('historial_operaciones').update({'tags': tag_nuevo}).eq('id', row['id']).execute()
-            st.cache_data.clear()
-            st.success("Cambios sincronizados en la nube.")
-            st.rerun()
+            st.cache_data.clear(); st.success("Cambios sincronizados en la nube."); st.rerun()
