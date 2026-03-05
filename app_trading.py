@@ -17,7 +17,6 @@ supabase: Client = create_client(url, key)
 if 'user' not in st.session_state:
     st.session_state.user = None
 
-# Restaurar sesión si existe
 if 'access_token' in st.session_state and 'refresh_token' in st.session_state:
     try:
         supabase.auth.set_session(st.session_state['access_token'], st.session_state['refresh_token'])
@@ -25,15 +24,65 @@ if 'access_token' in st.session_state and 'refresh_token' in st.session_state:
         st.session_state.user = None
 
 # ──────────────────────────────────────────────
-#  TEMA OSCURO Y CSS (Simplificado para el Login)
+#  TEMA OSCURO PROFESIONAL - CSS GLOBAL
 # ──────────────────────────────────────────────
 dark_theme_css = """
 <style>
 @import url('https://fonts.googleapis.com/css2?family=IBM+Plex+Mono:wght@400;500;600&family=Inter:wght@300;400;500;600;700&display=swap');
+
 html, body, [data-testid="stAppViewContainer"], [data-testid="stMain"] { background-color: #0a0e1a !important; color: #e2e8f0 !important; font-family: 'Inter', sans-serif !important; }
-h1, h2, h3 { color: #f8fafc !important; }
 [data-testid="stSidebar"] { display: none !important; }
+
+h1 { font-family: 'IBM Plex Mono', monospace !important; font-size: 1.6rem !important; font-weight: 600 !important; color: #f8fafc !important; letter-spacing: -0.02em !important; padding-bottom: 0.25rem !important; border-bottom: 2px solid #1e40af !important; margin-bottom: 1.5rem !important; }
+h2, h3 { font-family: 'Inter', sans-serif !important; font-weight: 600 !important; color: #e2e8f0 !important; letter-spacing: -0.01em !important; }
+
+[data-testid="stTabs"] [role="tablist"] { background: #0d1120 !important; border-bottom: 1px solid #1e2740 !important; gap: 4px !important; padding: 4px 4px 0 !important; border-radius: 8px 8px 0 0 !important; }
+[data-testid="stTabs"] button[role="tab"] { background: transparent !important; color: #64748b !important; font-family: 'Inter', sans-serif !important; font-weight: 500 !important; font-size: 0.85rem !important; border-radius: 6px 6px 0 0 !important; border: 1px solid transparent !important; padding: 8px 16px !important; transition: all 0.2s ease !important; }
+[data-testid="stTabs"] button[role="tab"]:hover { color: #94a3b8 !important; background: #1e2740 !important; }
+[data-testid="stTabs"] button[role="tab"][aria-selected="true"] { background: #1e2740 !important; color: #60a5fa !important; border-color: #1e2740 !important; border-bottom-color: transparent !important; font-weight: 600 !important; }
+
+[data-testid="stTextInput"] input, [data-testid="stDateInput"] input, [data-baseweb="select"] div, [data-baseweb="input"] input { background-color: #111827 !important; color: #e2e8f0 !important; border: 1px solid #1e2740 !important; border-radius: 6px !important; font-family: 'Inter', sans-serif !important; }
+[data-baseweb="select"] div:hover, [data-testid="stTextInput"] input:focus { border-color: #3b82f6 !important; }
+
+[data-testid="stButton"] > button { background: #1e40af !important; color: #f8fafc !important; border: none !important; border-radius: 6px !important; font-family: 'Inter', sans-serif !important; font-weight: 500 !important; font-size: 0.85rem !important; padding: 8px 18px !important; transition: all 0.2s ease !important; }
+[data-testid="stButton"] > button:hover { background: #2563eb !important; box-shadow: 0 0 18px rgba(59,130,246,0.35) !important; }
+[data-testid="stButton"] > button[kind="primary"] { background: linear-gradient(135deg, #1d4ed8, #1e40af) !important; box-shadow: 0 2px 12px rgba(29,78,216,0.4) !important; }
+
+[data-testid="metric-container"] { background: #0d1120 !important; border: 1px solid #1e2740 !important; border-radius: 10px !important; padding: 16px 20px !important; transition: border-color 0.2s ease !important; }
+[data-testid="metric-container"]:hover { border-color: #3b82f6 !important; }
+[data-testid="metric-container"] [data-testid="stMetricLabel"] { font-family: 'Inter', sans-serif !important; font-size: 0.75rem !important; text-transform: uppercase !important; color: #64748b !important; font-weight: 500 !important; }
+[data-testid="metric-container"] [data-testid="stMetricValue"] { font-family: 'IBM Plex Mono', monospace !important; font-size: 1.6rem !important; font-weight: 600 !important; color: #f8fafc !important; }
+
+[data-testid="stDataFrame"], iframe { border: 1px solid #1e2740 !important; border-radius: 8px !important; overflow: hidden !important; }
+[data-testid="stAlert"] { border-radius: 8px !important; border-left-width: 3px !important; font-family: 'Inter', sans-serif !important; font-size: 0.88rem !important; }
+[data-testid="stFileUploader"] { border: 1px dashed #1e2740 !important; border-radius: 8px !important; background: #0d1120 !important; padding: 8px !important; }
+[data-testid="stFileUploader"]:hover { border-color: #3b82f6 !important; }
+[data-testid="stExpander"] { background: #0d1120 !important; border: 1px solid #1e2740 !important; border-radius: 8px !important; }
+hr { border-color: #1e2740 !important; }
+
+::-webkit-scrollbar { width: 5px; height: 5px; }
+::-webkit-scrollbar-track { background: #0a0e1a; }
+::-webkit-scrollbar-thumb { background: #1e2740; border-radius: 4px; }
+::-webkit-scrollbar-thumb:hover { background: #3b82f6; }
+
 .section-label { font-family: 'Inter', sans-serif; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: #3b82f6; margin-bottom: 8px; display: block; }
+.block-container { max-width: 900px !important; padding-left: 3rem !important; padding-right: 3rem !important; padding-top: 2rem !important; }
+label, [data-testid="stWidgetLabel"] { color: #94a3b8 !important; font-size: 0.82rem !important; font-weight: 500 !important; letter-spacing: 0.02em !important; }
+
+/* CALENDARIO CSS */
+.cal-grid { display: grid; grid-template-columns: repeat(5, 1fr) 1.2fr; gap: 7px; margin-bottom: 8px; }
+.cal-header { font-family: 'Inter', sans-serif; font-weight: 600; font-size: 0.72rem; text-align: center; color: #475569; padding-bottom: 6px; border-bottom: 1px solid #1e2740; text-transform: uppercase; }
+.cal-day { border-radius: 7px; padding: 10px; min-height: 82px; display: flex; flex-direction: column; justify-content: space-between; transition: transform 0.15s ease; }
+.cal-day:hover { transform: scale(1.02); }
+.cal-date { font-size: 0.78rem; font-weight: 600; align-self: flex-start; opacity: 0.85; font-family: 'Inter', sans-serif; }
+.cal-pnl { font-size: 1.05rem; font-weight: 700; text-align: center; margin: auto 0; font-family: 'IBM Plex Mono', monospace; }
+.cal-trades { font-size: 0.68rem; font-weight: 500; text-align: center; opacity: 0.65; font-family: 'Inter', sans-serif; margin-top: 2px; }
+.day-green { background: rgba(16, 185, 129, 0.1); border: 1px solid rgba(16, 185, 129, 0.35); color: #34d399; }
+.day-red { background: rgba(239, 68, 68, 0.1); border: 1px solid rgba(239, 68, 68, 0.35); color: #f87171; }
+.day-gray { background: #0d1120; border: 1px solid #1e2740; color: #334155; }
+.day-blank { background: transparent; border: none; }
+.cal-week-total { border-radius: 7px; padding: 10px; display: flex; flex-direction: column; justify-content: center; align-items: center; }
+.week-title { font-size: 0.68rem; text-transform: uppercase; font-weight: 700; opacity: 0.75; font-family: 'Inter', sans-serif; }
 </style>
 """
 st.markdown(dark_theme_css, unsafe_allow_html=True)
@@ -70,10 +119,10 @@ if st.session_state.user is None:
             except Exception as e:
                 st.error(f"Error al registrar: {e}")
                 
-    st.stop() # Detiene la ejecución aquí si no hay usuario logueado
+    st.stop()
 
 # ──────────────────────────────────────────────
-#  A PARTIR DE AQUÍ: EL USUARIO ESTÁ LOGUEADO
+#  EL USUARIO ESTÁ LOGUEADO
 # ──────────────────────────────────────────────
 col_titulo, col_logout = st.columns([4, 1])
 with col_titulo:
@@ -147,12 +196,8 @@ def calcular_trades(df, fecha):
                 acciones_totales = 0
     return pd.DataFrame(trades).sort_values(by=['Fecha', 'Hora Inicio']).reset_index(drop=True)
 
-# ──────────────────────────────────────────────
-#  DESCARGAR DATOS DEL USUARIO DESDE SUPABASE
-# ──────────────────────────────────────────────
-@st.cache_data(ttl=5) # Refresca los datos cada 5 segundos
+@st.cache_data(ttl=5)
 def obtener_datos_usuario():
-    # RLS en Supabase garantiza que esto solo traiga los datos del usuario logueado
     res = supabase.table('historial_operaciones').select('*').execute()
     df = pd.DataFrame(res.data)
     if not df.empty:
@@ -165,7 +210,6 @@ def obtener_datos_usuario():
 
 df_historico = obtener_datos_usuario()
 
-# Extraer Tags Únicos
 tags_unicos = []
 if not df_historico.empty and 'Tags' in df_historico.columns:
     for tag_val in df_historico['Tags'].dropna():
@@ -178,10 +222,13 @@ if 'mis_tags' not in st.session_state:
     st.session_state['mis_tags'] = tags_unicos
 
 # ──────────────────────────────────────────────
-#  INTERFAZ PRINCIPAL
+#  INTERFAZ PRINCIPAL TABS
 # ──────────────────────────────────────────────
-tab1, tab_filtros, tab2, tab4 = st.tabs(["  Ingreso  ", "  Filtros  ", "  Estadísticas  ", "  Historial  "])
+tab1, tab_filtros, tab2, tab3, tab4 = st.tabs([
+    "  Ingreso  ", "  Filtros  ", "  Estadísticas  ", "  Calendario  ", "  Historial  "
+])
 
+# ── PESTAÑA 1: INGRESO ──
 with tab1:
     st.markdown('<span class="section-label">Nueva sesión de trading</span>', unsafe_allow_html=True)
     col_fecha, col_archivo = st.columns([1, 2])
@@ -200,7 +247,6 @@ with tab1:
             df_trades_dia = calcular_trades(df_crudo, fecha_operativa)
             st.success(f"{len(df_trades_dia)} trades procesados.")
             
-            # Formulario para tags
             c1, c2 = st.columns([3, 1])
             with c1: nuevo_tag = st.text_input("Crear nuevo tag:")
             with c2:
@@ -217,26 +263,27 @@ with tab1:
             )
 
             if st.button(f"Guardar trades en la nube", type="primary"):
-                # Preparar datos para Supabase
                 df_to_upload = edited_df.rename(columns={
                     'Fecha': 'fecha', 'Ticker': 'ticker', 'Tipo': 'tipo',
                     'Hora Inicio': 'hora_inicio', 'Hora Fin': 'hora_fin',
                     'Volumen (Acciones)': 'volumen', 'PnL ($)': 'pnl', 'Tags': 'tags'
                 })
-                # Inyectar el ID del usuario
                 df_to_upload['user_id'] = st.session_state.user.id
                 datos_dict = df_to_upload.to_dict(orient='records')
                 
-                # Borrar datos de ese día (si existen) para evitar duplicados, luego insertar
-                supabase.table('historial_operaciones').delete().eq('fecha', str(fecha_operativa)).execute()
+                # Para el usuario actual, borramos la fecha específica para evitar duplicados y reinsertamos
+                supabase.table('historial_operaciones').delete().eq('fecha', str(fecha_operativa)).eq('user_id', st.session_state.user.id).execute()
                 supabase.table('historial_operaciones').insert(datos_dict).execute()
                 
                 st.cache_data.clear()
                 st.success("¡Operaciones guardadas de forma segura!")
 
+# ── PESTAÑA FILTROS ──
 with tab_filtros:
+    st.markdown('<span class="section-label">Filtrar estadísticas por Setup / Tag</span>', unsafe_allow_html=True)
     if not df_historico.empty and st.session_state['mis_tags']:
         if 'tags_activos' not in st.session_state: st.session_state['tags_activos'] = set()
+        st.caption("Activa o desactiva los tags para filtrar las estadísticas.")
         for tag in st.session_state['mis_tags']:
             if st.checkbox(tag, value=(tag in st.session_state['tags_activos']), key=f"chk_{tag}"):
                 st.session_state['tags_activos'].add(tag)
@@ -246,34 +293,178 @@ with tab_filtros:
         if st.session_state['tags_activos']:
             pattern = '|'.join(st.session_state['tags_activos'])
             df_historico = df_historico[df_historico['Tags'].str.contains(pattern, case=False, na=False, regex=True)]
+            st.success(f"Filtrando por: {', '.join(sorted(st.session_state['tags_activos']))}")
+        else:
+            st.info("Mostrando todos los datos. Activa un tag para filtrar.")
 
+# ── RESTO DE PESTAÑAS ──
 if not df_historico.empty:
+    
+    # ── PESTAÑA ESTADÍSTICAS ──
     with tab2:
         total_pnl = df_historico['PnL ($)'].sum()
         total_trades = len(df_historico)
         win_rate = (len(df_historico[df_historico['PnL ($)'] > 0]) / total_trades) * 100 if total_trades > 0 else 0
 
         col1, col2, col3 = st.columns(3)
-        col1.metric("PnL Histórico", f"${total_pnl:,.2f}")
+        col1.metric("PnL Histórico Total", f"${total_pnl:,.2f}")
         col2.metric("Total de Trades", total_trades)
-        col3.metric("Win Rate", f"{win_rate:.1f}%")
+        col3.metric("Win Rate Global", f"{win_rate:.1f}%")
 
-        # Curva de capital básica
+        st.markdown("---")
+        st.markdown('<span class="section-label">Curva de Capital</span>', unsafe_allow_html=True)
+
         df_curva = df_historico.sort_values(by=['Fecha', 'Hora Inicio']).reset_index(drop=True)
         df_curva['PnL Acumulado'] = df_curva['PnL ($)'].cumsum()
         df_curva['Trade #'] = df_curva.index + 1
-        st.line_chart(df_curva.set_index('Trade #')['PnL Acumulado'])
 
+        grafico_curva = alt.Chart(df_curva).mark_area(
+            line={'color': '#3b82f6', 'strokeWidth': 2},
+            color=alt.Gradient(
+                gradient='linear',
+                stops=[alt.GradientStop(color='rgba(59,130,246,0.35)', offset=0), alt.GradientStop(color='rgba(59,130,246,0.0)', offset=1)],
+                x1=0, x2=0, y1=0, y2=1
+            )
+        ).encode(
+            x=alt.X('Trade #:Q', title='Número de Trade', axis=alt.Axis(labelColor='#64748b', titleColor='#64748b', gridColor='#1e2740')),
+            y=alt.Y('PnL Acumulado:Q', title='Capital Acumulado ($)', axis=alt.Axis(labelColor='#64748b', titleColor='#64748b', gridColor='#1e2740')),
+            tooltip=[alt.Tooltip('Fecha:N'), alt.Tooltip('Ticker:N'), alt.Tooltip('PnL ($):Q', format='$.2f'), alt.Tooltip('PnL Acumulado:Q', format='$.2f')]
+        ).properties(height=320, background='#0d1120').configure_view(strokeWidth=0)
+        st.altair_chart(grafico_curva, use_container_width=True)
+
+        st.markdown("---")
+        st.markdown('<span class="section-label">Rendimiento Diario</span>', unsafe_allow_html=True)
+
+        rendimiento_diario = df_historico.groupby('Fecha')['PnL ($)'].sum().reset_index()
+        rendimiento_diario['Color'] = rendimiento_diario['PnL ($)'].apply(lambda x: '#10b981' if x >= 0 else '#ef4444')
+
+        grafico_base = alt.Chart(rendimiento_diario).mark_bar(size=40, cornerRadiusTopLeft=4, cornerRadiusTopRight=4) if len(rendimiento_diario) < 7 else alt.Chart(rendimiento_diario).mark_bar(cornerRadiusTopLeft=3, cornerRadiusTopRight=3)
+        grafico = grafico_base.encode(
+            x=alt.X('Fecha:O', title='Día Operativo', axis=alt.Axis(labelColor='#64748b', titleColor='#64748b', gridColor='#1e2740')),
+            y=alt.Y('PnL ($):Q', title='PnL Neto ($)', axis=alt.Axis(labelColor='#64748b', titleColor='#64748b', gridColor='#1e2740')),
+            color=alt.Color('Color:N', scale=None),
+            tooltip=[alt.Tooltip('Fecha:O'), alt.Tooltip('PnL ($):Q', format='$.2f')]
+        ).properties(height=280, background='#0d1120').configure_view(strokeWidth=0)
+        st.altair_chart(grafico, use_container_width=True)
+
+    # ── PESTAÑA CALENDARIO ──
+    with tab3:
+        df_historico['Fecha_DT'] = pd.to_datetime(df_historico['Fecha'])
+        df_historico['Mes_Año'] = df_historico['Fecha_DT'].dt.strftime('%Y-%m')
+
+        años_disponibles = sorted(df_historico['Fecha_DT'].dt.year.unique(), reverse=True)
+        meses_por_año = {año: sorted(df_historico[df_historico['Fecha_DT'].dt.year == año]['Fecha_DT'].dt.month.unique()) for año in años_disponibles}
+        NOMBRES_MESES = {1:'Ene',2:'Feb',3:'Mar',4:'Abr',5:'May',6:'Jun',7:'Jul',8:'Ago',9:'Sep',10:'Oct',11:'Nov',12:'Dic'}
+
+        if 'cal_año' not in st.session_state or st.session_state['cal_año'] not in años_disponibles: st.session_state['cal_año'] = años_disponibles[0]
+        if 'cal_mes' not in st.session_state or st.session_state['cal_mes'] not in meses_por_año[st.session_state['cal_año']]: st.session_state['cal_mes'] = meses_por_año[st.session_state['cal_año']][-1]
+
+        st.markdown('<span class="section-label">Año</span>', unsafe_allow_html=True)
+        cols_años = st.columns([1]*len(años_disponibles) + [6])
+        for i, año in enumerate(años_disponibles):
+            with cols_años[i]:
+                activo = año == st.session_state['cal_año']
+                estilo = "background:#0f2460 !important; color:#93c5fd !important; border:1px solid #1e40af !important; font-weight:700 !important;" if activo else "background:#0d1120 !important; color:#475569 !important; border:1px solid #1e2740 !important; font-weight:500 !important;"
+                if st.button(str(año), key=f"año_{año}", use_container_width=True):
+                    st.session_state['cal_año'] = año
+                    st.session_state['cal_mes'] = meses_por_año[año][-1]
+                    st.rerun()
+                st.markdown(f'<style>div[data-testid="column"]:nth-child({i+1}) div[data-testid="stButton"] > button {{ {estilo} border-radius: 6px !important; }}</style>', unsafe_allow_html=True)
+
+        st.markdown('<span class="section-label">Mes</span>', unsafe_allow_html=True)
+        meses_del_año = meses_por_año[st.session_state['cal_año']]
+        cols_meses = st.columns([1]*len(meses_del_año) + [6])
+        for i, mes in enumerate(meses_del_año):
+            with cols_meses[i]:
+                activo = mes == st.session_state['cal_mes']
+                estilo_m = "background:#0f2460 !important; color:#93c5fd !important; border:1px solid #1e40af !important; font-weight:700 !important;" if activo else "background:#0d1120 !important; color:#475569 !important; border:1px solid #1e2740 !important; font-weight:500 !important;"
+                if st.button(NOMBRES_MESES[mes], key=f"mes_{mes}", use_container_width=True):
+                    st.session_state['cal_mes'] = mes
+                    st.rerun()
+                st.markdown(f'<style>div[data-testid="column"]:nth-child({i+1}) div[data-testid="stButton"] > button {{ {estilo_m} border-radius: 6px !important; }}</style>', unsafe_allow_html=True)
+
+        st.markdown("---")
+        año_sel = st.session_state['cal_año']
+        mes_sel = st.session_state['cal_mes']
+        mes_año_str = f"{año_sel}-{mes_sel:02d}"
+        df_mes = df_historico[df_historico['Mes_Año'] == mes_año_str]
+
+        pnl_mes_total = df_mes['PnL ($)'].sum()
+        color_mes = "#10b981" if pnl_mes_total >= 0 else "#ef4444"
+        signo_mes = "+" if pnl_mes_total >= 0 else ""
+
+        st.markdown(f"<div style='text-align:right; margin-bottom:16px;'><span style='font-size:0.75rem; font-weight:600; color:#475569; text-transform:uppercase;'>PnL del mes — {NOMBRES_MESES[mes_sel]} {año_sel}</span><br><span style='font-size:1.9rem; font-weight:700; color:{color_mes}; font-family:\"IBM Plex Mono\",monospace;'>{signo_mes}${pnl_mes_total:,.2f}</span></div>", unsafe_allow_html=True)
+
+        pnl_por_dia = df_mes.groupby(df_mes['Fecha_DT'].dt.day)['PnL ($)'].sum().to_dict()
+        trades_por_dia = df_mes.groupby(df_mes['Fecha_DT'].dt.day).size().to_dict()
+
+        html_cal = '<div class="cal-grid">' + ''.join([f'<div class="cal-header">{d}</div>' for d in ['Lun', 'Mar', 'Mié', 'Jue', 'Vie', 'Semana']]) + '</div>'
+        for semana in calendar.monthcalendar(año_sel, mes_sel):
+            dias_habiles = semana[0:5]
+            if all(dia == 0 for dia in dias_habiles): continue
+            html_cal += '<div class="cal-grid">'
+            pnl_semana = 0.0
+            trades_semana = 0
+            dias_con_trade = 0
+            for dia in dias_habiles:
+                if dia == 0: html_cal += '<div class="cal-day day-blank"></div>'
+                elif dia in pnl_por_dia:
+                    pnl = pnl_por_dia[dia]
+                    n_trades = trades_por_dia.get(dia, 0)
+                    pnl_semana += pnl
+                    trades_semana += n_trades
+                    dias_con_trade += 1
+                    clase = "day-green" if pnl >= 0 else "day-red"
+                    html_cal += f'<div class="cal-day {clase}"><div class="cal-date">{dia}</div><div class="cal-pnl">{("+" if pnl>=0 else "")}${pnl:,.2f}</div><div class="cal-trades">{n_trades} trades</div></div>'
+                else: html_cal += f'<div class="cal-day day-gray"><div class="cal-date">{dia}</div><div class="cal-pnl">—</div></div>'
+
+            if dias_con_trade > 0:
+                html_cal += f'<div class="cal-week-total {"day-green" if pnl_semana>=0 else "day-red"}"><div class="week-title">Sem.</div><div class="cal-pnl">{("+" if pnl_semana>=0 else "")}${pnl_semana:,.2f}</div><div class="cal-trades">{trades_semana} trades</div></div>'
+            else: html_cal += '<div class="cal-week-total day-gray"><div class="week-title">Sem.</div><div class="cal-pnl">—</div></div>'
+            html_cal += '</div>'
+        st.markdown(html_cal, unsafe_allow_html=True)
+
+    # ── PESTAÑA HISTORIAL ──
     with tab4:
-        st.markdown('<span class="section-label">Historial (Solo lectura)</span>', unsafe_allow_html=True)
-        # Ocultamos la columna 'id' de la base de datos para la vista
-        columnas_mostrar = [c for c in df_historico.columns if c not in ['id', 'user_id', 'created_at']]
-        st.dataframe(df_historico[columnas_mostrar], use_container_width=True)
+        with st.expander("Gestor de Datos — Eliminar días operativos"):
+            fechas_guardadas = sorted(df_historico['Fecha'].unique(), reverse=True)
+            col_d1, col_d2 = st.columns([2, 1])
+            with col_d1: fecha_a_borrar = st.selectbox("Fecha a eliminar:", fechas_guardadas)
+            with col_d2:
+                st.write("")
+                st.write("")
+                if st.button("Eliminar permanentemente", type="primary"):
+                    supabase.table('historial_operaciones').delete().eq('fecha', str(fecha_a_borrar)).eq('user_id', st.session_state.user.id).execute()
+                    st.cache_data.clear()
+                    st.success(f"Datos del {fecha_a_borrar} eliminados.")
+                    st.rerun()
+
+        st.markdown('<span class="section-label">Historial Completo (Editable)</span>', unsafe_allow_html=True)
+        st.caption("Modifica la columna **Tags**. Los cambios se guardarán en tu base de datos al presionar el botón de abajo.")
+
+        # Ocultamos columnas de metadatos de Supabase y visuales para que no se vean en la tabla
+        columnas_mostrar = [c for c in df_historico.columns if c not in ['user_id', 'created_at', 'Fecha_DT', 'Mes_Año']]
         
-        with st.expander("Eliminar un día operativo"):
-            fechas = sorted(df_historico['Fecha'].unique(), reverse=True)
-            fecha_borrar = st.selectbox("Fecha a eliminar:", fechas)
-            if st.button("Eliminar permanentemente", type="primary"):
-                supabase.table('historial_operaciones').delete().eq('fecha', str(fecha_borrar)).execute()
-                st.cache_data.clear()
-                st.rerun()
+        edited_historial = st.data_editor(
+            df_historico[columnas_mostrar],
+            use_container_width=True,
+            num_rows="fixed",
+            column_config={
+                "id": None, # Esto oculta el ID pero lo mantiene en memoria para poder actualizar la nube
+                "Tags": st.column_config.SelectboxColumn("Tags (Setups)", options=st.session_state['mis_tags']),
+                "Volumen (Acciones)": st.column_config.NumberColumn("Qty"),
+            }
+        )
+
+        if st.button("Guardar cambios en la nube", type="primary"):
+            # Comparamos el df editado con el original para actualizar solo las filas que cambiaron
+            for index, row in edited_historial.iterrows():
+                tag_original = df_historico.loc[index, 'Tags']
+                tag_nuevo = row['Tags']
+                # Si el tag cambió, actualizamos esa fila específica por su ID único en Supabase
+                if tag_original != tag_nuevo:
+                    supabase.table('historial_operaciones').update({'tags': tag_nuevo}).eq('id', row['id']).execute()
+            
+            st.cache_data.clear()
+            st.success("Cambios sincronizados con la nube correctamente.")
+            st.rerun()
