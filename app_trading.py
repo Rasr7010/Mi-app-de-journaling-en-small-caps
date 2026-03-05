@@ -160,10 +160,8 @@ if 'mis_tags' not in st.session_state:
 perfiles_db = df_historico_global['Perfil'].unique().tolist() if not df_historico_global.empty else []
 
 if 'lista_perfiles' not in st.session_state:
-    # Si la cuenta es completamente nueva y no tiene datos, le asignamos "Mi Cuenta" para que pueda empezar
     st.session_state['lista_perfiles'] = perfiles_db if perfiles_db else ['Mi Cuenta']
 else:
-    # Mantenemos los perfiles creados en memoria y añadimos los que vienen de la BD
     for p in perfiles_db:
         if p not in st.session_state['lista_perfiles']: 
             st.session_state['lista_perfiles'].append(p)
@@ -172,8 +170,17 @@ else:
 if 'perfil_activo' not in st.session_state or st.session_state['perfil_activo'] not in st.session_state['lista_perfiles']:
     st.session_state['perfil_activo'] = st.session_state['lista_perfiles'][0]
 
-# Filtramos la data para que toda la app solo vea el perfil activo
-df_perfil = df_historico_global[df_historico_global['Perfil'] == st.session_state['perfil_activo']].copy() if not df_historico_global.empty else pd.DataFrame()
+# ──────────────────────────────────────────────
+#  FILTRADO POR PERFIL Y RESETEO DE ÍNDICE
+# ──────────────────────────────────────────────
+# Filtramos la data para que toda la app solo vea el perfil activo y reseteamos el conteo
+if not df_historico_global.empty:
+    df_perfil = df_historico_global[df_historico_global['Perfil'] == st.session_state['perfil_activo']].copy()
+    # ESTA ES LA CORRECCIÓN: Reseteamos el índice y le sumamos 1 para que empiece desde 1 sin saltos
+    df_perfil.reset_index(drop=True, inplace=True)
+    df_perfil.index = df_perfil.index + 1
+else:
+    df_perfil = pd.DataFrame()
 
 # ──────────────────────────────────────────────
 #  HEADER, PERFIL ACTIVO Y CIERRE DE SESIÓN
@@ -381,7 +388,7 @@ if not df_perfil.empty:
 
         df_curva = df_perfil.copy()
         df_curva['PnL Acumulado'] = df_curva['PnL ($)'].cumsum()
-        df_curva['Trade #'] = df_curva.index + 1
+        df_curva['Trade #'] = df_curva.index # Usamos directamente el índice porque ya empieza en 1
 
         grafico_curva = alt.Chart(df_curva).mark_area(
             line={'color': '#3b82f6', 'strokeWidth': 2}, color=alt.Gradient(gradient='linear', stops=[alt.GradientStop(color='rgba(59,130,246,0.35)', offset=0), alt.GradientStop(color='rgba(59,130,246,0.0)', offset=1)], x1=0, x2=0, y1=0, y2=1)
