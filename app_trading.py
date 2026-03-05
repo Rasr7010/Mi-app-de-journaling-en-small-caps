@@ -23,6 +23,10 @@ if 'access_token' in st.session_state and 'refresh_token' in st.session_state:
     except:
         st.session_state.user = None
 
+# Inicializar el perfil activo por defecto
+if 'perfil_activo' not in st.session_state:
+    st.session_state['perfil_activo'] = 'Principal'
+
 # ──────────────────────────────────────────────
 #  TEMA OSCURO PROFESIONAL - CSS GLOBAL
 # ──────────────────────────────────────────────
@@ -33,45 +37,35 @@ dark_theme_css = """
 html, body, [data-testid="stAppViewContainer"], [data-testid="stMain"] { background-color: #0a0e1a !important; color: #e2e8f0 !important; font-family: 'Inter', sans-serif !important; }
 [data-testid="stSidebar"] { background-color: #0d1120 !important; border-right: 1px solid #1e2740 !important; }
 [data-testid="stSidebar"] * { color: #cbd5e1 !important; }
-[data-testid="stSidebar"] h1, [data-testid="stSidebar"] h2 { color: #f1f5f9 !important; font-size: 1rem !important; letter-spacing: 0.08em !important; text-transform: uppercase !important; font-weight: 600 !important; }
 
 h1 { font-family: 'IBM Plex Mono', monospace !important; font-size: 1.6rem !important; font-weight: 600 !important; color: #f8fafc !important; letter-spacing: -0.02em !important; padding-bottom: 0.25rem !important; border-bottom: 2px solid #1e40af !important; margin-bottom: 1.5rem !important; }
 h2, h3 { font-family: 'Inter', sans-serif !important; font-weight: 600 !important; color: #e2e8f0 !important; letter-spacing: -0.01em !important; }
 
 [data-testid="stTabs"] [role="tablist"] { background: #0d1120 !important; border-bottom: 1px solid #1e2740 !important; gap: 4px !important; padding: 4px 4px 0 !important; border-radius: 8px 8px 0 0 !important; }
-[data-testid="stTabs"] button[role="tab"] { background: transparent !important; color: #64748b !important; font-family: 'Inter', sans-serif !important; font-weight: 500 !important; font-size: 0.85rem !important; border-radius: 6px 6px 0 0 !important; border: 1px solid transparent !important; padding: 8px 16px !important; transition: all 0.2s ease !important; letter-spacing: 0.01em !important; }
+[data-testid="stTabs"] button[role="tab"] { background: transparent !important; color: #64748b !important; font-family: 'Inter', sans-serif !important; font-weight: 500 !important; font-size: 0.85rem !important; border-radius: 6px 6px 0 0 !important; border: 1px solid transparent !important; padding: 8px 16px !important; transition: all 0.2s ease !important; }
 [data-testid="stTabs"] button[role="tab"]:hover { color: #94a3b8 !important; background: #1e2740 !important; }
 [data-testid="stTabs"] button[role="tab"][aria-selected="true"] { background: #1e2740 !important; color: #60a5fa !important; border-color: #1e2740 !important; border-bottom-color: transparent !important; font-weight: 600 !important; }
 
 [data-testid="stTextInput"] input, [data-testid="stDateInput"] input, [data-baseweb="select"] div, [data-baseweb="input"] input { background-color: #111827 !important; color: #e2e8f0 !important; border: 1px solid #1e2740 !important; border-radius: 6px !important; font-family: 'Inter', sans-serif !important; }
 [data-baseweb="select"] div:hover, [data-testid="stTextInput"] input:focus { border-color: #3b82f6 !important; }
 
-[data-testid="stButton"] > button { background: #1e40af !important; color: #f8fafc !important; border: none !important; border-radius: 6px !important; font-family: 'Inter', sans-serif !important; font-weight: 500 !important; font-size: 0.85rem !important; padding: 8px 18px !important; letter-spacing: 0.02em !important; transition: all 0.2s ease !important; }
+[data-testid="stButton"] > button { background: #1e40af !important; color: #f8fafc !important; border: none !important; border-radius: 6px !important; font-family: 'Inter', sans-serif !important; font-weight: 500 !important; font-size: 0.85rem !important; padding: 8px 18px !important; transition: all 0.2s ease !important; }
 [data-testid="stButton"] > button:hover { background: #2563eb !important; box-shadow: 0 0 18px rgba(59,130,246,0.35) !important; }
 [data-testid="stButton"] > button[kind="primary"] { background: linear-gradient(135deg, #1d4ed8, #1e40af) !important; box-shadow: 0 2px 12px rgba(29,78,216,0.4) !important; }
 
 [data-testid="metric-container"] { background: #0d1120 !important; border: 1px solid #1e2740 !important; border-radius: 10px !important; padding: 16px 20px !important; transition: border-color 0.2s ease !important; }
 [data-testid="metric-container"]:hover { border-color: #3b82f6 !important; }
-[data-testid="metric-container"] [data-testid="stMetricLabel"] { font-family: 'Inter', sans-serif !important; font-size: 0.75rem !important; text-transform: uppercase !important; letter-spacing: 0.08em !important; color: #64748b !important; font-weight: 500 !important; }
+[data-testid="metric-container"] [data-testid="stMetricLabel"] { font-family: 'Inter', sans-serif !important; font-size: 0.75rem !important; text-transform: uppercase !important; color: #64748b !important; font-weight: 500 !important; }
 [data-testid="metric-container"] [data-testid="stMetricValue"] { font-family: 'IBM Plex Mono', monospace !important; font-size: 1.6rem !important; font-weight: 600 !important; color: #f8fafc !important; }
 
 [data-testid="stDataFrame"], iframe { border: 1px solid #1e2740 !important; border-radius: 8px !important; overflow: hidden !important; }
 [data-testid="stAlert"] { border-radius: 8px !important; border-left-width: 3px !important; font-family: 'Inter', sans-serif !important; font-size: 0.88rem !important; }
 [data-testid="stFileUploader"] { border: 1px dashed #1e2740 !important; border-radius: 8px !important; background: #0d1120 !important; padding: 8px !important; }
-[data-testid="stFileUploader"]:hover { border-color: #3b82f6 !important; }
 [data-testid="stExpander"] { background: #0d1120 !important; border: 1px solid #1e2740 !important; border-radius: 8px !important; }
 hr { border-color: #1e2740 !important; }
 
-::-webkit-scrollbar { width: 5px; height: 5px; }
-::-webkit-scrollbar-track { background: #0a0e1a; }
-::-webkit-scrollbar-thumb { background: #1e2740; border-radius: 4px; }
-::-webkit-scrollbar-thumb:hover { background: #3b82f6; }
-
-.btn-flotante { position: fixed; bottom: 36px; right: 36px; background: #1e40af; color: #f8fafc !important; width: 44px; height: 44px; border-radius: 50%; display: flex; justify-content: center; align-items: center; font-size: 18px; text-decoration: none; box-shadow: 0 4px 20px rgba(29,78,216,0.5); z-index: 9999; transition: all 0.25s ease; border: 1px solid #2563eb; }
-.btn-flotante:hover { background: #2563eb; transform: translateY(-3px); box-shadow: 0 8px 28px rgba(59,130,246,0.55); }
-
 .cal-grid { display: grid; grid-template-columns: repeat(5, 1fr) 1.2fr; gap: 7px; margin-bottom: 8px; }
-.cal-header { font-family: 'Inter', sans-serif; font-weight: 600; font-size: 0.72rem; text-align: center; color: #475569; padding-bottom: 6px; border-bottom: 1px solid #1e2740; text-transform: uppercase; letter-spacing: 0.06em; }
+.cal-header { font-family: 'Inter', sans-serif; font-weight: 600; font-size: 0.72rem; text-align: center; color: #475569; padding-bottom: 6px; border-bottom: 1px solid #1e2740; text-transform: uppercase; }
 .cal-day { border-radius: 7px; padding: 10px; min-height: 82px; display: flex; flex-direction: column; justify-content: space-between; transition: transform 0.15s ease; }
 .cal-day:hover { transform: scale(1.02); }
 .cal-date { font-size: 0.78rem; font-weight: 600; align-self: flex-start; opacity: 0.85; font-family: 'Inter', sans-serif; }
@@ -82,7 +76,7 @@ hr { border-color: #1e2740 !important; }
 .day-gray { background: #0d1120; border: 1px solid #1e2740; color: #334155; }
 .day-blank { background: transparent; border: none; }
 .cal-week-total { border-radius: 7px; padding: 10px; display: flex; flex-direction: column; justify-content: center; align-items: center; }
-.week-title { font-size: 0.68rem; text-transform: uppercase; font-weight: 700; opacity: 0.75; letter-spacing: 0.06em; font-family: 'Inter', sans-serif; }
+.week-title { font-size: 0.68rem; text-transform: uppercase; font-weight: 700; opacity: 0.75; font-family: 'Inter', sans-serif; }
 
 .section-label { font-family: 'Inter', sans-serif; font-size: 0.7rem; font-weight: 600; text-transform: uppercase; letter-spacing: 0.1em; color: #3b82f6; margin-bottom: 8px; display: block; }
 #MainMenu, footer { visibility: hidden; }
@@ -93,7 +87,6 @@ label, [data-testid="stWidgetLabel"] { color: #94a3b8 !important; font-size: 0.8
 """
 st.markdown("<div id='inicio'></div>", unsafe_allow_html=True)
 st.markdown(dark_theme_css, unsafe_allow_html=True)
-st.markdown('<a href="#inicio" class="btn-flotante" title="Volver arriba">↑</a>', unsafe_allow_html=True)
 
 # ──────────────────────────────────────────────
 #  SISTEMA DE AUTENTICACIÓN
@@ -132,11 +125,13 @@ if st.session_state.user is None:
     st.stop()
 
 # ──────────────────────────────────────────────
-#  HEADER Y CIERRE DE SESIÓN
+#  HEADER, PERFIL ACTIVO Y CIERRE DE SESIÓN
 # ──────────────────────────────────────────────
-col_titulo, col_logout = st.columns([4, 1])
+col_titulo, col_perfil, col_logout = st.columns([3, 1, 1])
 with col_titulo:
-    st.title("⬛ Trading Journal — Small Caps")
+    st.title("⬛ Trading Journal")
+with col_perfil:
+    st.markdown(f"<div style='text-align:right; padding-top:15px; color:#64748b; font-size:0.75rem;'>PERFIL ACTIVO<br><b style='color:#60a5fa; font-size:0.9rem;'>{st.session_state['perfil_activo']}</b></div>", unsafe_allow_html=True)
 with col_logout:
     st.write("")
     if st.button("Cerrar Sesión"):
@@ -169,7 +164,6 @@ def obtener_datos_usuario():
 
 df_historico_global = obtener_datos_usuario()
 
-# Extraer todos los tags a nivel global
 tags_unicos = []
 if not df_historico_global.empty and 'Tags' in df_historico_global.columns:
     for tag_val in df_historico_global['Tags'].dropna():
@@ -181,9 +175,7 @@ tags_unicos = sorted(list(set(tags_unicos)))
 if 'mis_tags' not in st.session_state:
     st.session_state['mis_tags'] = tags_unicos
 
-# ──────────────────────────────────────────────
-#  SISTEMA MULTICUENTA (PERFILES)
-# ──────────────────────────────────────────────
+# Obtener lista de perfiles únicos desde la base de datos
 perfiles_db = df_historico_global['Perfil'].unique().tolist() if not df_historico_global.empty else []
 if 'Principal' not in perfiles_db: perfiles_db.insert(0, 'Principal')
 
@@ -193,22 +185,12 @@ else:
     for p in perfiles_db:
         if p not in st.session_state['lista_perfiles']: st.session_state['lista_perfiles'].append(p)
 
-c_perfil1, c_perfil2, c_perfil3 = st.columns([2, 1, 1])
-with c_perfil1:
-    perfil_activo = st.selectbox("👤 Perfil Activo (Cuenta):", st.session_state['lista_perfiles'])
-with c_perfil2:
-    nuevo_perfil = st.text_input("Crear nuevo perfil:", placeholder="Ej: Cuenta Demo")
-with c_perfil3:
-    st.write(""); st.write("")
-    if st.button("+ Añadir Perfil", use_container_width=True):
-        if nuevo_perfil and nuevo_perfil not in st.session_state['lista_perfiles']:
-            st.session_state['lista_perfiles'].append(nuevo_perfil)
-            st.rerun()
+# Validar que el perfil activo siga existiendo (por si se eliminó)
+if st.session_state['perfil_activo'] not in st.session_state['lista_perfiles']:
+    st.session_state['perfil_activo'] = st.session_state['lista_perfiles'][0]
 
-st.markdown("---")
-
-# Filtramos la data maestra para que TODA la app solo vea el perfil seleccionado
-df_perfil = df_historico_global[df_historico_global['Perfil'] == perfil_activo].copy() if not df_historico_global.empty else pd.DataFrame()
+# Filtramos la data para que las pestañas estadísticas solo vean el perfil actual
+df_perfil = df_historico_global[df_historico_global['Perfil'] == st.session_state['perfil_activo']].copy() if not df_historico_global.empty else pd.DataFrame()
 
 # ──────────────────────────────────────────────
 #  LÓGICA DE PROCESAMIENTO
@@ -225,13 +207,8 @@ def procesar_historial(texto_completo):
         estado = p_validas[1].upper()
         if 'FILLED' not in estado: continue
         try:
-            hora = p_validas[0]
-            ticker = p_validas[2]
-            lado = p_validas[3].upper()
-            acciones = int(p_validas[4])
-            precio_real = 0.0
-            ult = p_validas[-1]
-            pen = p_validas[-2]
+            hora = p_validas[0]; ticker = p_validas[2]; lado = p_validas[3].upper(); acciones = int(p_validas[4])
+            precio_real = 0.0; ult = p_validas[-1]; pen = p_validas[-2]
             if ult.replace('.', '').isdigit() and pen.replace('.', '').isdigit(): precio_real = float(f"{pen}.{ult}")
             elif ult.replace('.', '').isdigit(): precio_real = float(ult)
             if precio_real > 0: ejecuciones.append({'Hora': hora, 'Ticker': ticker, 'Lado': lado, 'Acciones': acciones, 'Precio_Ejecucion': precio_real})
@@ -256,11 +233,79 @@ def calcular_trades(df, fecha):
 # ──────────────────────────────────────────────
 #  INTERFAZ PRINCIPAL TABS
 # ──────────────────────────────────────────────
-tab1, tab_filtros, tab2, tab3, tab4 = st.tabs(["  Ingreso  ", "  Filtros  ", "  Estadísticas  ", "  Calendario  ", "  Historial  "])
+tab1, tab_filtros, tab2, tab3, tab4, tab_perfiles = st.tabs([
+    "  Ingreso  ", "  Filtros  ", "  Estadísticas  ", "  Calendario  ", "  Historial  ", "  Perfiles  "
+])
 
+# ── PESTAÑA PERFILES (Gestión) ──
+with tab_perfiles:
+    st.markdown('<span class="section-label">Selección de Cuenta</span>', unsafe_allow_html=True)
+    
+    # Selector Principal
+    idx_activo = st.session_state['lista_perfiles'].index(st.session_state['perfil_activo']) if st.session_state['perfil_activo'] in st.session_state['lista_perfiles'] else 0
+    perfil_seleccionado = st.radio("Elige el perfil con el que deseas trabajar:", st.session_state['lista_perfiles'], index=idx_activo, horizontal=True)
+    
+    if perfil_seleccionado != st.session_state['perfil_activo']:
+        st.session_state['perfil_activo'] = perfil_seleccionado
+        st.rerun()
+        
+    st.markdown("---")
+    st.markdown('<span class="section-label">Gestión de Perfiles</span>', unsafe_allow_html=True)
+
+    c1, c2, c3 = st.columns(3)
+    
+    with c1:
+        with st.expander("➕ Crear Nuevo Perfil"):
+            nuevo_perfil = st.text_input("Nombre del perfil:", placeholder="Ej: Cuenta Fondeo")
+            if st.button("Crear", use_container_width=True):
+                if nuevo_perfil and nuevo_perfil not in st.session_state['lista_perfiles']:
+                    st.session_state['lista_perfiles'].append(nuevo_perfil)
+                    st.session_state['perfil_activo'] = nuevo_perfil
+                    st.rerun()
+                    
+    with c2:
+        with st.expander("✏️ Renombrar Perfil"):
+            perfil_a_renombrar = st.selectbox("Perfil actual:", st.session_state['lista_perfiles'], key="ren_sel")
+            nuevo_nombre = st.text_input("Nuevo nombre:", key="ren_txt")
+            if st.button("Actualizar", use_container_width=True):
+                if nuevo_nombre and nuevo_nombre != perfil_a_renombrar and nuevo_nombre not in st.session_state['lista_perfiles']:
+                    # Actualizar en base de datos
+                    supabase.table('historial_operaciones').update({'perfil': nuevo_nombre}).eq('perfil', perfil_a_renombrar).eq('user_id', st.session_state.user.id).execute()
+                    
+                    # Actualizar memoria
+                    st.session_state['lista_perfiles'].remove(perfil_a_renombrar)
+                    st.session_state['lista_perfiles'].append(nuevo_nombre)
+                    if st.session_state['perfil_activo'] == perfil_a_renombrar:
+                        st.session_state['perfil_activo'] = nuevo_nombre
+                        
+                    st.cache_data.clear()
+                    st.success("Perfil actualizado.")
+                    st.rerun()
+
+    with c3:
+        with st.expander("🗑️ Eliminar Perfil"):
+            st.warning("Se borrarán todos sus trades.")
+            perfil_a_borrar = st.selectbox("Perfil a eliminar:", st.session_state['lista_perfiles'], key="del_sel")
+            if st.button("Eliminar permanentemente", type="primary", use_container_width=True):
+                if len(st.session_state['lista_perfiles']) > 1:
+                    # Borrar de la base de datos
+                    supabase.table('historial_operaciones').delete().eq('perfil', perfil_a_borrar).eq('user_id', st.session_state.user.id).execute()
+                    
+                    # Actualizar memoria
+                    st.session_state['lista_perfiles'].remove(perfil_a_borrar)
+                    if st.session_state['perfil_activo'] == perfil_a_borrar:
+                        st.session_state['perfil_activo'] = st.session_state['lista_perfiles'][0]
+                        
+                    st.cache_data.clear()
+                    st.success("Perfil eliminado.")
+                    st.rerun()
+                else:
+                    st.error("No puedes eliminar el único perfil que tienes.")
+
+# ── PESTAÑA INGRESO ──
 with tab1:
     st.markdown('<span class="section-label">Nueva sesión de trading</span>', unsafe_allow_html=True)
-    st.info(f"Los datos que subas se guardarán en el perfil: **{perfil_activo}**")
+    st.info(f"Los datos que subas se guardarán en el perfil: **{st.session_state['perfil_activo']}**")
     col_fecha, col_archivo = st.columns([1, 2])
     with col_fecha: fecha_operativa = st.date_input("Fecha de sesión", date.today())
     with col_archivo: uploaded_file = st.file_uploader("Archivo .txt de Sterling Trader Pro", type=["txt"], label_visibility="visible")
@@ -297,21 +342,21 @@ with tab1:
                     column_config={ "Tags": st.column_config.SelectboxColumn("Tags (Setups)", options=st.session_state['mis_tags'], required=False) }
                 )
 
-                if st.button(f"Guardar trades en {perfil_activo}", type="primary"):
+                if st.button(f"Guardar trades en {st.session_state['perfil_activo']}", type="primary"):
                     df_to_upload = edited_df.rename(columns={
                         'Fecha': 'fecha', 'Ticker': 'ticker', 'Tipo': 'tipo',
                         'Hora Inicio': 'hora_inicio', 'Hora Fin': 'hora_fin',
                         'Volumen (Acciones)': 'volumen', 'PnL ($)': 'pnl', 'Tags': 'tags'
                     })
                     df_to_upload['user_id'] = st.session_state.user.id
-                    df_to_upload['perfil'] = perfil_activo  # Asignamos la propiedad del perfil a la fila
+                    df_to_upload['perfil'] = st.session_state['perfil_activo']
                     datos_dict = df_to_upload.to_dict(orient='records')
                     
-                    # Se borran y reescriben los datos considerando el Perfil Activo
-                    supabase.table('historial_operaciones').delete().eq('fecha', str(fecha_operativa)).eq('user_id', st.session_state.user.id).eq('perfil', perfil_activo).execute()
+                    supabase.table('historial_operaciones').delete().eq('fecha', str(fecha_operativa)).eq('user_id', st.session_state.user.id).eq('perfil', st.session_state['perfil_activo']).execute()
                     supabase.table('historial_operaciones').insert(datos_dict).execute()
-                    st.cache_data.clear(); st.success(f"¡Operaciones guardadas en {perfil_activo}!")
+                    st.cache_data.clear(); st.success(f"¡Operaciones guardadas en {st.session_state['perfil_activo']}!")
 
+# ── PESTAÑA FILTROS ──
 with tab_filtros:
     st.markdown('<span class="section-label">Filtrar estadísticas por Setup / Tag</span>', unsafe_allow_html=True)
     if not df_perfil.empty and st.session_state['mis_tags']:
@@ -326,8 +371,9 @@ with tab_filtros:
             df_perfil = df_perfil[df_perfil['Tags'].str.contains(pattern, case=False, na=False, regex=True)]
             st.success(f"Filtrando por: {', '.join(sorted(st.session_state['tags_activos']))}")
         else: st.info("Mostrando todos los datos de este perfil.")
-    elif df_perfil.empty: st.info(f"Aún no hay datos guardados en el perfil '{perfil_activo}'.")
+    elif df_perfil.empty: st.info(f"Aún no hay datos guardados en el perfil '{st.session_state['perfil_activo']}'.")
 
+# ── PESTAÑAS DE VISUALIZACIÓN ──
 if not df_perfil.empty:
     with tab2:
         total_pnl = df_perfil['PnL ($)'].sum()
@@ -401,9 +447,7 @@ if not df_perfil.empty:
                 activo = año == st.session_state['cal_año']
                 estilo = "background:#0f2460 !important; color:#93c5fd !important; border:1px solid #1e40af !important; font-weight:700 !important;" if activo else "background:#0d1120 !important; color:#475569 !important; border:1px solid #1e2740 !important; font-weight:500 !important;"
                 if st.button(str(año), key=f"año_{año}", use_container_width=True):
-                    st.session_state['cal_año'] = año
-                    st.session_state['cal_mes'] = meses_por_año[año][-1]
-                    st.rerun()
+                    st.session_state['cal_año'] = año; st.session_state['cal_mes'] = meses_por_año[año][-1]; st.rerun()
                 st.markdown(f"""<style>div[data-testid="column"]:nth-child({i+1}) div[data-testid="stButton"] > button {{ {estilo} border-radius: 6px !important; font-family: 'IBM Plex Mono', monospace !important; font-size: 0.85rem !important; }}</style>""", unsafe_allow_html=True)
 
         st.markdown('<span class="section-label">Mes</span>', unsafe_allow_html=True)
@@ -414,8 +458,7 @@ if not df_perfil.empty:
                 activo = mes == st.session_state['cal_mes']
                 estilo_m = "background:#0f2460 !important; color:#93c5fd !important; border:1px solid #1e40af !important; font-weight:700 !important;" if activo else "background:#0d1120 !important; color:#475569 !important; border:1px solid #1e2740 !important; font-weight:500 !important;"
                 if st.button(NOMBRES_MESES[mes], key=f"mes_{mes}", use_container_width=True):
-                    st.session_state['cal_mes'] = mes
-                    st.rerun()
+                    st.session_state['cal_mes'] = mes; st.rerun()
                 st.markdown(f"""<style>div[data-testid="column"]:nth-child({i+1}) div[data-testid="stButton"] > button {{ {estilo_m} border-radius: 6px !important; font-family: 'Inter', sans-serif !important; font-size: 0.82rem !important; }}</style>""", unsafe_allow_html=True)
 
         st.markdown("---")
@@ -456,20 +499,17 @@ if not df_perfil.empty:
         st.markdown(html_cal, unsafe_allow_html=True)
 
     with tab4:
-        with st.expander(f"Gestor de Datos — Eliminar de '{perfil_activo}'"):
+        with st.expander(f"Gestor de Datos — Eliminar de '{st.session_state['perfil_activo']}'"):
             fechas_guardadas = sorted(df_perfil['Fecha'].unique(), reverse=True)
             col_d1, col_d2 = st.columns([2, 1])
             with col_d1: fecha_a_borrar = st.selectbox("Fecha a eliminar:", fechas_guardadas)
             with col_d2:
                 st.write(""); st.write("")
                 if st.button("Eliminar permanentemente", type="primary"):
-                    # Solo borra la fecha para el usuario Y el perfil activo actual
-                    supabase.table('historial_operaciones').delete().eq('fecha', str(fecha_a_borrar)).eq('user_id', st.session_state.user.id).eq('perfil', perfil_activo).execute()
-                    st.cache_data.clear()
-                    st.success(f"Datos del {fecha_a_borrar} eliminados de {perfil_activo}.")
-                    st.rerun()
+                    supabase.table('historial_operaciones').delete().eq('fecha', str(fecha_a_borrar)).eq('user_id', st.session_state.user.id).eq('perfil', st.session_state['perfil_activo']).execute()
+                    st.cache_data.clear(); st.success(f"Datos del {fecha_a_borrar} eliminados de {st.session_state['perfil_activo']}."); st.rerun()
 
-        st.markdown(f'<span class="section-label">Historial de {perfil_activo}</span>', unsafe_allow_html=True)
+        st.markdown(f'<span class="section-label">Historial de {st.session_state["perfil_activo"]}</span>', unsafe_allow_html=True)
         
         c1_hist, c2_hist = st.columns([3, 1])
         with c1_hist: nuevo_tag_hist = st.text_input("Crear nuevo Tag para la lista:", placeholder="Ej: Breakout...", key="tag_tab4")
