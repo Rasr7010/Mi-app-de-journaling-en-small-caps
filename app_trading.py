@@ -96,37 +96,45 @@ st.markdown(dark_theme_css, unsafe_allow_html=True)
 st.markdown('<a href="#inicio" class="btn-flotante" title="Volver arriba">↑</a>', unsafe_allow_html=True)
 
 # ──────────────────────────────────────────────
-#  SISTEMA DE AUTENTICACIÓN
+#  SISTEMA DE AUTENTICACIÓN (LOGIN / REGISTRO)
 # ──────────────────────────────────────────────
 if st.session_state.user is None:
     st.markdown("<h1 style='text-align: center;'>🔐 Trading Journal</h1>", unsafe_allow_html=True)
     st.markdown("<p style='text-align: center; color: #94a3b8;'>Inicia sesión para acceder a tu historial privado</p>", unsafe_allow_html=True)
     
     tab_login, tab_registro = st.tabs(["Iniciar Sesión", "Crear Cuenta"])
+    
     with tab_login:
-        email_login = st.text_input("Correo electrónico", key="login_email")
-        pass_login = st.text_input("Contraseña", type="password", key="login_pass")
-        if st.button("Entrar", type="primary", use_container_width=True):
-            try:
-                res = supabase.auth.sign_in_with_password({"email": email_login, "password": pass_login})
-                st.session_state.user = res.user
-                st.session_state['access_token'] = res.session.access_token
-                st.session_state['refresh_token'] = res.session.refresh_token
-                st.rerun()
-            except Exception as e:
-                st.error("Error al iniciar sesión. Verifica tus credenciales.")
+        # Envolver en un formulario web real para que funcione el autocompletado y el botón 'Enter'
+        with st.form("login_form"):
+            email_login = st.text_input("Correo electrónico", key="login_email", autocomplete="email")
+            pass_login = st.text_input("Contraseña", type="password", key="login_pass", autocomplete="current-password")
+            submit_login = st.form_submit_button("Entrar", type="primary", use_container_width=True)
+            
+            if submit_login:
+                try:
+                    res = supabase.auth.sign_in_with_password({"email": email_login, "password": pass_login})
+                    st.session_state.user = res.user
+                    st.session_state['access_token'] = res.session.access_token
+                    st.session_state['refresh_token'] = res.session.refresh_token
+                    st.rerun()
+                except Exception as e:
+                    st.error("Error al iniciar sesión. Verifica tus credenciales.")
                 
     with tab_registro:
-        email_reg = st.text_input("Nuevo Correo electrónico", key="reg_email")
-        pass_reg = st.text_input("Nueva Contraseña (mínimo 6 caracteres)", type="password", key="reg_pass")
-        if st.button("Registrarse", use_container_width=True):
-            try:
-                res = supabase.auth.sign_up({"email": email_reg, "password": pass_reg})
-                st.success("¡Cuenta creada exitosamente! Ahora puedes iniciar sesión.")
-            except Exception as e:
-                st.error(f"Error al registrar: {e}")
+        with st.form("registro_form"):
+            email_reg = st.text_input("Nuevo Correo electrónico", key="reg_email", autocomplete="email")
+            pass_reg = st.text_input("Nueva Contraseña (mínimo 6 caracteres)", type="password", key="reg_pass", autocomplete="new-password")
+            submit_reg = st.form_submit_button("Registrarse", use_container_width=True)
+            
+            if submit_reg:
+                try:
+                    res = supabase.auth.sign_up({"email": email_reg, "password": pass_reg})
+                    st.success("¡Cuenta creada exitosamente! Ahora puedes iniciar sesión.")
+                except Exception as e:
+                    st.error(f"Error al registrar: {e}")
+                
     st.stop()
-
 col_titulo, col_logout = st.columns([4, 1])
 with col_titulo:
     st.title("⬛ Trading Journal — Small Caps")
