@@ -3,6 +3,7 @@ import pandas as pd
 from datetime import date
 import altair as alt
 import calendar
+import re
 from supabase import create_client, Client
 
 st.set_page_config(page_title="Trading Journal", page_icon="📈", layout="centered")
@@ -156,7 +157,6 @@ tags_unicos = sorted(list(set(tags_unicos)))
 if 'mis_tags' not in st.session_state:
     st.session_state['mis_tags'] = tags_unicos
 
-# Obtener lista de perfiles únicos desde la base de datos sin forzar ninguno
 perfiles_db = df_historico_global['Perfil'].unique().tolist() if not df_historico_global.empty else []
 
 if 'lista_perfiles' not in st.session_state:
@@ -166,7 +166,6 @@ else:
         if p not in st.session_state['lista_perfiles']: 
             st.session_state['lista_perfiles'].append(p)
 
-# Validar que el perfil activo exista en la lista actual
 if 'perfil_activo' not in st.session_state or st.session_state['perfil_activo'] not in st.session_state['lista_perfiles']:
     st.session_state['perfil_activo'] = st.session_state['lista_perfiles'][0]
 
@@ -353,22 +352,47 @@ with tab1:
                     supabase.table('historial_operaciones').insert(datos_dict).execute()
                     st.cache_data.clear(); st.success(f"¡Operaciones guardadas en {st.session_state['perfil_activo']}!")
 
-# ── PESTAÑA FILTROS ──
+# ── PESTAÑA FILTROS (NUEVO DISEÑO CON MULTISELECT) ──
 with tab_filtros:
     st.markdown('<span class="section-label">Filtrar estadísticas por Setup / Tag</span>', unsafe_allow_html=True)
     if not df_perfil.empty and st.session_state['mis_tags']:
-        if 'tags_activos' not in st.session_state: st.session_state['tags_activos'] = set()
-        st.caption("Activa o desactiva los tags para filtrar las estadísticas de este perfil.")
-        for tag in st.session_state['mis_tags']:
-            if st.checkbox(tag, value=(tag in st.session_state['tags_activos']), key=f"chk_{tag}"): st.session_state['tags_activos'].add(tag)
-            else: st.session_state['tags_activos'].discard(tag)
+        st.caption("Todos los tags están seleccionados por defecto. Haz clic en la 'x' para quitar los que no quieras analizar.")
+        
+        # Inicializamos todos los tags como seleccionados si es la primera vez
+        if 'tags_activos' not in st.session_state:
+            st.session_state['tags_activos'] = st.session_state['mis_tags'].copy()
+            
+        # Limpieza de seguridad por si algún tag fue borrado globalmente
+        st.session_state['tags_activos'] = [t for t in st.session_state['tags_activos'] if t in st.session_state['mis_tags']]
+
+        # El menú desplegable compacto
+        tags_seleccionados = st.multiselect(
+            "Setups activos en tus estadísticas:",
+            options=st.session_state['mis_tags'],
+            default=st.session_state['tags_activos']
+        )
+        
+        # Guardamos la elección para que persista al cambiar de pestaña
+        st.session_state['tags_activos'] = tags_seleccionados
+
         st.markdown("---")
-        if st.session_state['tags_activos']:
-            pattern = '|'.join(st.session_state['tags_activos'])
+        
+        # Lógica de filtrado
+        if tags_seleccionados:
+            pattern = '|'.join([re.escape(t) for t in tags_seleccionados])
             df_perfil = df_perfil[df_perfil['Tags'].str.contains(pattern, case=False, na=False, regex=True)]
-            st.success(f"Filtrando por: {', '.join(sorted(st.session_state['tags_activos']))}")
-        else: st.info("Mostrando todos los datos de este perfil.")
-    elif df_perfil.empty: st.info(f"Aún no hay datos guardados en el perfil '{st.session_state['perfil_activo']}'.")
+            
+            if len(tags_seleccionados) == len(st.session_state['mis_tags']):
+                st.info("Mostrando todos los datos (Todos los setups seleccionados).")
+            else:
+                st.success(f"Mostrando datos filtrados por {len(tags_seleccionados)} setup(s).")
+        else:
+            # Si el usuario borra todos los tags, vaciamos el DataFrame para que las stats muestren cero
+            df_perfil = pd.DataFrame(columns=df_perfil.columns)
+            st.warning("No has seleccionado ningún setup. Las estadísticas se mostrarán vacías.")
+            
+    elif df_perfil.empty: 
+        st.info(f"Aún no hay datos guardados en el perfil '{st.session_state['perfil_activo']}'.")
 
 # ── PESTAÑAS DE VISUALIZACIÓN ──
 if not df_perfil.empty:
@@ -428,7 +452,6 @@ if not df_perfil.empty:
                 st.altair_chart(grafico_tags, use_container_width=True)
 
     with tab3:
-        # ── NUEVO DISEÑO COMPACTO PARA SELECCIÓN DE FECHA ──
         df_perfil['Fecha_DT'] = pd.to_datetime(df_perfil['Fecha'])
         df_perfil['Mes_Año'] = df_perfil['Fecha_DT'].dt.strftime('%Y-%m')
         
@@ -467,7 +490,6 @@ if not df_perfil.empty:
 
         st.markdown("---")
         
-        # ── RENDERIZADO DEL CALENDARIO ──
         mes_año_str = f"{año_sel}-{mes_sel:02d}"
         df_mes = df_perfil[df_perfil['Mes_Año'] == mes_año_str]
 
