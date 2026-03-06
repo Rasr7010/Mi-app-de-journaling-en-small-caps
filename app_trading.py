@@ -386,15 +386,13 @@ if not df_perfil.empty:
 
         df_curva = df_perfil.copy()
         df_curva['PnL Acumulado'] = df_curva['PnL ($)'].cumsum()
-        
-        # EL ARREGLO ESTÁ AQUÍ: Forzamos la numeración para que empiece en 1 como una lista estricta
         df_curva['Trade #'] = list(range(1, len(df_curva) + 1))
 
         grafico_curva = alt.Chart(df_curva).mark_area(
             line={'color': '#3b82f6', 'strokeWidth': 2}, color=alt.Gradient(gradient='linear', stops=[alt.GradientStop(color='rgba(59,130,246,0.35)', offset=0), alt.GradientStop(color='rgba(59,130,246,0.0)', offset=1)], x1=0, x2=0, y1=0, y2=1)
         ).encode(
-            # Y AQUÍ: Agregamos scale=alt.Scale(zero=False) y tickMinStep=1 para que Altair no dibuje el 0 a la fuerza
-            x=alt.X('Trade #:Q', title='Número de Trade', scale=alt.Scale(zero=False), axis=alt.Axis(labelColor='#64748b', titleColor='#64748b', gridColor='#1e2740', tickMinStep=1)),
+            # EL ARREGLO EXACTO: agregamos nice=False para que no invente ceros
+            x=alt.X('Trade #:Q', title='Número de Trade', scale=alt.Scale(zero=False, nice=False), axis=alt.Axis(labelColor='#64748b', titleColor='#64748b', gridColor='#1e2740', tickMinStep=1)),
             y=alt.Y('PnL Acumulado:Q', title='Capital Acumulado ($)', axis=alt.Axis(labelColor='#64748b', titleColor='#64748b', gridColor='#1e2740')),
             tooltip=[alt.Tooltip('Fecha:N'), alt.Tooltip('Ticker:N'), alt.Tooltip('PnL ($):Q', format='$.2f'), alt.Tooltip('PnL Acumulado:Q', format='$.2f')]
         ).properties(height=320, background='#0d1120').configure_view(strokeWidth=0)
