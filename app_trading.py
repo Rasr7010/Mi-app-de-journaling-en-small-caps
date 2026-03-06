@@ -391,7 +391,6 @@ if not df_perfil.empty:
         grafico_curva = alt.Chart(df_curva).mark_area(
             line={'color': '#3b82f6', 'strokeWidth': 2}, color=alt.Gradient(gradient='linear', stops=[alt.GradientStop(color='rgba(59,130,246,0.35)', offset=0), alt.GradientStop(color='rgba(59,130,246,0.0)', offset=1)], x1=0, x2=0, y1=0, y2=1)
         ).encode(
-            # EL ARREGLO EXACTO: agregamos nice=False para que no invente ceros
             x=alt.X('Trade #:Q', title='Número de Trade', scale=alt.Scale(zero=False, nice=False), axis=alt.Axis(labelColor='#64748b', titleColor='#64748b', gridColor='#1e2740', tickMinStep=1)),
             y=alt.Y('PnL Acumulado:Q', title='Capital Acumulado ($)', axis=alt.Axis(labelColor='#64748b', titleColor='#64748b', gridColor='#1e2740')),
             tooltip=[alt.Tooltip('Fecha:N'), alt.Tooltip('Ticker:N'), alt.Tooltip('PnL ($):Q', format='$.2f'), alt.Tooltip('PnL Acumulado:Q', format='$.2f')]
@@ -429,38 +428,46 @@ if not df_perfil.empty:
                 st.altair_chart(grafico_tags, use_container_width=True)
 
     with tab3:
+        # ── NUEVO DISEÑO COMPACTO PARA SELECCIÓN DE FECHA ──
         df_perfil['Fecha_DT'] = pd.to_datetime(df_perfil['Fecha'])
         df_perfil['Mes_Año'] = df_perfil['Fecha_DT'].dt.strftime('%Y-%m')
+        
         años_disponibles = sorted(df_perfil['Fecha_DT'].dt.year.unique(), reverse=True)
         meses_por_año = {año: sorted(df_perfil[df_perfil['Fecha_DT'].dt.year == año]['Fecha_DT'].dt.month.unique()) for año in años_disponibles}
-        NOMBRES_MESES = {1:'Ene',2:'Feb',3:'Mar',4:'Abr',5:'May',6:'Jun',7:'Jul',8:'Ago',9:'Sep',10:'Oct',11:'Nov',12:'Dic'}
+        
+        NOMBRES_MESES = {1:'Enero', 2:'Febrero', 3:'Marzo', 4:'Abril', 5:'Mayo', 6:'Junio', 7:'Julio', 8:'Agosto', 9:'Septiembre', 10:'Octubre', 11:'Noviembre', 12:'Diciembre'}
 
-        if 'cal_año' not in st.session_state or st.session_state['cal_año'] not in años_disponibles: st.session_state['cal_año'] = años_disponibles[0]
-        if 'cal_mes' not in st.session_state or st.session_state['cal_mes'] not in meses_por_año[st.session_state['cal_año']]: st.session_state['cal_mes'] = meses_por_año[st.session_state['cal_año']][-1]
+        if 'cal_año' not in st.session_state or st.session_state['cal_año'] not in años_disponibles:
+            st.session_state['cal_año'] = años_disponibles[0] if años_disponibles else date.today().year
 
-        st.markdown('<span class="section-label">Año</span>', unsafe_allow_html=True)
-        cols_años = st.columns([1]*len(años_disponibles) + [6])
-        for i, año in enumerate(años_disponibles):
-            with cols_años[i]:
-                activo = año == st.session_state['cal_año']
-                estilo = "background:#0f2460 !important; color:#93c5fd !important; border:1px solid #1e40af !important; font-weight:700 !important;" if activo else "background:#0d1120 !important; color:#475569 !important; border:1px solid #1e2740 !important; font-weight:500 !important;"
-                if st.button(str(año), key=f"año_{año}", use_container_width=True):
-                    st.session_state['cal_año'] = año; st.session_state['cal_mes'] = meses_por_año[año][-1]; st.rerun()
-                st.markdown(f"""<style>div[data-testid="column"]:nth-child({i+1}) div[data-testid="stButton"] > button {{ {estilo} border-radius: 6px !important; font-family: 'IBM Plex Mono', monospace !important; font-size: 0.85rem !important; }}</style>""", unsafe_allow_html=True)
+        st.markdown('<span class="section-label">Filtrar Calendario</span>', unsafe_allow_html=True)
+        
+        col_y, col_m, col_vacio = st.columns([1, 1, 2])
+        
+        with col_y:
+            idx_año = años_disponibles.index(st.session_state['cal_año']) if st.session_state['cal_año'] in años_disponibles else 0
+            año_sel = st.selectbox("📅 Año", años_disponibles, index=idx_año)
+            
+        meses_del_año = meses_por_año.get(año_sel, [1])
+        if 'cal_mes' not in st.session_state or st.session_state['cal_mes'] not in meses_del_año:
+            st.session_state['cal_mes'] = meses_del_año[-1]
 
-        st.markdown('<span class="section-label">Mes</span>', unsafe_allow_html=True)
-        meses_del_año = meses_por_año[st.session_state['cal_año']]
-        cols_meses = st.columns([1]*len(meses_del_año) + [6])
-        for i, mes in enumerate(meses_del_año):
-            with cols_meses[i]:
-                activo = mes == st.session_state['cal_mes']
-                estilo_m = "background:#0f2460 !important; color:#93c5fd !important; border:1px solid #1e40af !important; font-weight:700 !important;" if activo else "background:#0d1120 !important; color:#475569 !important; border:1px solid #1e2740 !important; font-weight:500 !important;"
-                if st.button(NOMBRES_MESES[mes], key=f"mes_{mes}", use_container_width=True):
-                    st.session_state['cal_mes'] = mes; st.rerun()
-                st.markdown(f"""<style>div[data-testid="column"]:nth-child({i+1}) div[data-testid="stButton"] > button {{ {estilo_m} border-radius: 6px !important; font-family: 'Inter', sans-serif !important; font-size: 0.82rem !important; }}</style>""", unsafe_allow_html=True)
+        nombres_opciones = [NOMBRES_MESES[m] for m in meses_del_año]
+        idx_mes = meses_del_año.index(st.session_state['cal_mes']) if st.session_state['cal_mes'] in meses_del_año else len(meses_del_año) - 1
+        
+        with col_m:
+            mes_sel_nombre = st.selectbox("📆 Mes", nombres_opciones, index=idx_mes)
+            
+        mes_sel = [k for k, v in NOMBRES_MESES.items() if v == mes_sel_nombre][0]
+
+        if año_sel != st.session_state['cal_año'] or mes_sel != st.session_state['cal_mes']:
+            st.session_state['cal_año'] = año_sel
+            st.session_state['cal_mes'] = mes_sel
+            st.rerun()
 
         st.markdown("---")
-        año_sel = st.session_state['cal_año']; mes_sel = st.session_state['cal_mes']
+        
+        # ── RENDERIZADO DEL CALENDARIO ──
         mes_año_str = f"{año_sel}-{mes_sel:02d}"
         df_mes = df_perfil[df_perfil['Mes_Año'] == mes_año_str]
 
