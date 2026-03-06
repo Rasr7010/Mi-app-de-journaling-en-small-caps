@@ -352,32 +352,28 @@ with tab1:
                     supabase.table('historial_operaciones').insert(datos_dict).execute()
                     st.cache_data.clear(); st.success(f"¡Operaciones guardadas en {st.session_state['perfil_activo']}!")
 
-# ── PESTAÑA FILTROS (NUEVO DISEÑO CON MULTISELECT) ──
+# ── PESTAÑA FILTROS (REPARADA) ──
 with tab_filtros:
     st.markdown('<span class="section-label">Filtrar estadísticas por Setup / Tag</span>', unsafe_allow_html=True)
     if not df_perfil.empty and st.session_state['mis_tags']:
         st.caption("Todos los tags están seleccionados por defecto. Haz clic en la 'x' para quitar los que no quieras analizar.")
         
-        # Inicializamos todos los tags como seleccionados si es la primera vez
-        if 'tags_activos' not in st.session_state:
-            st.session_state['tags_activos'] = st.session_state['mis_tags'].copy()
-            
-        # Limpieza de seguridad por si algún tag fue borrado globalmente
-        st.session_state['tags_activos'] = [t for t in st.session_state['tags_activos'] if t in st.session_state['mis_tags']]
+        # Inicializamos el estado interno del widget la primera vez
+        if 'tags_seleccionados_state' not in st.session_state:
+            st.session_state['tags_seleccionados_state'] = st.session_state['mis_tags'].copy()
+        else:
+            # Limpieza para que no reviente si eliminaste un tag global
+            st.session_state['tags_seleccionados_state'] = [t for t in st.session_state['tags_seleccionados_state'] if t in st.session_state['mis_tags']]
 
-        # El menú desplegable compacto
+        # Al usar 'key', el widget lee y escribe directamente en session_state (evitando el doble click)
         tags_seleccionados = st.multiselect(
             "Setups activos en tus estadísticas:",
             options=st.session_state['mis_tags'],
-            default=st.session_state['tags_activos']
+            key='tags_seleccionados_state'
         )
-        
-        # Guardamos la elección para que persista al cambiar de pestaña
-        st.session_state['tags_activos'] = tags_seleccionados
 
         st.markdown("---")
         
-        # Lógica de filtrado
         if tags_seleccionados:
             pattern = '|'.join([re.escape(t) for t in tags_seleccionados])
             df_perfil = df_perfil[df_perfil['Tags'].str.contains(pattern, case=False, na=False, regex=True)]
@@ -387,7 +383,6 @@ with tab_filtros:
             else:
                 st.success(f"Mostrando datos filtrados por {len(tags_seleccionados)} setup(s).")
         else:
-            # Si el usuario borra todos los tags, vaciamos el DataFrame para que las stats muestren cero
             df_perfil = pd.DataFrame(columns=df_perfil.columns)
             st.warning("No has seleccionado ningún setup. Las estadísticas se mostrarán vacías.")
             
